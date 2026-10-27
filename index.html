@@ -1,4 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Maher Market System</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e5a44">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -197,7 +204,11 @@ const T = {
     tab_till: "Till", tab_stock: "Products & stock", tab_boxes: "Opened boxes", tab_customers: "Debts",
     tab_payments: "Payments", tab_today: "Today", tab_settings: "Settings",
     lang: "عربي", rate: "Rate", perUsd: "LBP per $1",
-    loading: "Loading…", noDb: "This page could not connect to its database. Open it from claude.ai while signed in to save sales and stock.",
+    loading: "Loading…", noDb: "Could not reach the store database. Check the internet connection; trying again…",
+    loginTitle: "Sign in", loginSub: "Use the store login to open the system.", email: "Email", password: "Password", signIn: "Sign in",
+    loginBad: "Wrong email or password.", signOut: "Sign out", signedInHere: "This device is signed in to the store.",
+    noAccess: "This login is not allowed to open the store data. Ask the owner to add it.",
+    offline: "No connection to the store database. Reconnecting… sales made now may not save.",
     readOnly: "You can view this page but not change it. Ask the owner for Contributor access.",
     scan: "Scan a barcode or type a product name", fresh: "Weighed items", allItems: "Products",
     inStock: "in stock", out: "Out of stock", noProducts: "No products yet. Add your first product in Products & stock.",
@@ -248,7 +259,11 @@ const T = {
     tab_till: "الصندوق", tab_stock: "المنتجات والمخزون", tab_boxes: "الكراتين المفتوحة", tab_customers: "الديون",
     tab_payments: "الدفعات", tab_today: "اليوم", tab_settings: "الإعدادات",
     lang: "English", rate: "السعر", perUsd: "ل.ل. لكل ١$",
-    loading: "جار التحميل…", noDb: "تعذر الاتصال بقاعدة البيانات. افتح الصفحة من claude.ai بعد تسجيل الدخول لحفظ المبيعات والمخزون.",
+    loading: "جار التحميل…", noDb: "تعذر الوصول إلى قاعدة بيانات المحل. تأكد من الإنترنت؛ جار إعادة المحاولة…",
+    loginTitle: "تسجيل الدخول", loginSub: "استخدم حساب المحل لفتح النظام.", email: "البريد الإلكتروني", password: "كلمة السر", signIn: "دخول",
+    loginBad: "البريد أو كلمة السر غير صحيحة.", signOut: "تسجيل الخروج", signedInHere: "هذا الجهاز مسجل الدخول إلى المحل.",
+    noAccess: "هذا الحساب غير مسموح له بفتح بيانات المحل. اطلب من المالك إضافته.",
+    offline: "لا يوجد اتصال بقاعدة بيانات المحل. جار إعادة الاتصال… قد لا تُحفظ المبيعات الآن.",
     readOnly: "يمكنك مشاهدة الصفحة فقط. اطلب من المالك صلاحية المساهم.",
     scan: "امسح الباركود أو اكتب اسم المنتج", fresh: "أصناف بالوزن", allItems: "المنتجات",
     inStock: "بالمخزون", out: "نفد", noProducts: "لا يوجد منتجات بعد. أضف أول منتج من صفحة المنتجات والمخزون.",
@@ -301,7 +316,7 @@ const t = (k) => (T[lang][k] ?? T.en[k] ?? k);
 
 // ---------- state ----------
 const S = {
-  db: null, canWrite: true, ready: false, failed: false,
+  db: null, canWrite: true, ready: false, failed: false, auth: "checking", offline: false, loginErr: "", loggingIn: false,
   products: new Map(), suppliers: new Map(), customers: new Map(), payments: new Map(), days: new Map(),
   settings: { rate: 89500, vat: 11, shelfMin: 2 },
   tab: "till", cart: [], pay: { method: "cash", usd: "", lbp: "", customer: "" },
@@ -385,6 +400,7 @@ function renderHeader() {
   $("#brand").innerHTML = `${esc(t("brand"))}<small>${esc(t("brandSub"))}</small>`;
   $("#rateTag").textContent = `${t("rate")}: ${S.settings.rate.toLocaleString("en-US")} ${t("perUsd")}`;
   $("#langBtn").textContent = t("lang");
+  $("#tabs").style.display = S.auth === "in" ? "" : "none";
   const prods = [...S.products.values()];
   const counts = {
     stock: prods.filter(isReorder).length,
@@ -433,8 +449,10 @@ function render() {
   const selStart = active && document.activeElement.selectionStart;
   const vals = {}; main.querySelectorAll("input[id],select[id]").forEach((el) => { vals[el.id] = el.type === "checkbox" ? el.checked : el.value; });
   let html = "";
-  if (!S.ready) html = `<div class="empty">${esc(S.failed ? t("noDb") : t("loading"))}</div>`;
-  else html = (!S.canWrite ? `<p class="banner">${esc(t("readOnly"))}</p><br>` : "") + VIEWS[S.tab]();
+  if (S.auth === "login") html = loginView();
+  else if (S.auth === "denied") html = `<div class="panel stack" style="max-width:420px;margin:32px auto"><p class="banner bad">${esc(t("noAccess"))}</p><div><button class="btn" data-act="signOut">${esc(t("signOut"))}</button></div></div>`;
+  else if (!S.ready) html = `<div class="empty">${esc(S.failed ? t("noDb") : t("loading"))}</div>`;
+  else html = (S.offline ? `<p class="banner bad">${esc(t("offline"))}</p><br>` : "") + (!S.canWrite ? `<p class="banner">${esc(t("readOnly"))}</p><br>` : "") + VIEWS[S.tab]();
   main.dataset.tab = S.tab;
   if (main.dataset.shown !== S.tab) { main.innerHTML = html; main.dataset.shown = S.tab; } else morph(main, html);
   main.querySelectorAll("input[id],select[id]").forEach((el) => {
@@ -748,7 +766,8 @@ VIEWS.settings = () => `<div class="stack" style="max-width:560px"><div><h2>${es
   <div class="panel stack"><label class="f">${esc(t("rateLbp"))}<input type="number" id="setRate" value="${S.settings.rate}" min="1" step="100"></label>
   <label class="f">${esc(t("vat"))}<input type="number" id="setVat" value="${S.settings.vat}" min="0" step="0.5"></label>
   <label class="f">${esc(t("shelfMin"))}<input type="number" id="setShelf" value="${S.settings.shelfMin}" min="0" step="1"></label>
-  <div><button class="btn primary" data-act="saveSettings" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button></div></div></div>`;
+  <div><button class="btn primary" data-act="saveSettings" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button></div></div>
+  <div class="panel row"><span class="muted">${esc(t("signedInHere"))}</span><button class="btn" data-act="signOut">${esc(t("signOut"))}</button></div></div>`;
 
 // ---------- drawers ----------
 let delArmed = null;
@@ -1088,14 +1107,130 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 
+// ---------- database: Supabase rows, read and written through the same doc/collection calls the screens use ----------
+const SUPABASE_URL = "https://kuxosgksxtpulowsfdtp.supabase.co";
+const SUPABASE_KEY = "sb_publishable_cKLFJP94bUD6k_STVgOTjg_ULKOihi_"; // public key: the database only answers store logins
+function supabaseDb(sb, onLine) {
+  const docs = new Map(), ver = new Map(), pending = new Map(), best = new Map(), bad = new Set(), subs = new Set();
+  const SEL = "path,data,version,deleted";
+  const colOf = (p) => p.slice(0, p.lastIndexOf("/")), idOf = (p) => p.slice(p.lastIndexOf("/") + 1);
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  const merge = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b)) o[k] = v && typeof v === "object" && !Array.isArray(v) && o[k] && typeof o[k] === "object" && !Array.isArray(o[k]) ? merge(o[k], v) : v; return o; };
+  const snap = (p) => ({ id: idOf(p), exists: docs.has(p), data: () => docs.get(p) });
+  const emit = (s) => { if (!s.live) return; try { s.next(s.path ? snap(s.path) : { docs: [...docs.keys()].filter((k) => colOf(k) === s.col && (!s.match || s.match(docs.get(k)))).map(snap) }); } catch (e) { console.error(e); } };
+  let dirty = new Set(), timer = null;
+  const flush = () => { clearTimeout(timer); timer = null; const ps = dirty; dirty = new Set(); const cols = new Set([...ps].map(colOf)); subs.forEach((s) => { if (s.path ? ps.has(s.path) : cols.has(s.col)) emit(s); }); };
+  const changed = (p, now) => { dirty.add(p); if (now) flush(); else if (!timer) timer = setTimeout(flush, 30); };
+  // a row from the server: the newest version wins; while this device is still saving that record, keep the answer until the last save returns
+  const fromServer = (r) => {
+    const p = r.path, v = +r.version;
+    if (pending.get(p)) { const b = best.get(p); if (!b || v > +b.version) best.set(p, r); return; }
+    if (v <= (ver.get(p) || 0)) return;
+    ver.set(p, v);
+    if (r.deleted) { if (!docs.delete(p)) return; } else docs.set(p, typeof r.data === "string" ? JSON.parse(r.data) : r.data);
+    changed(p);
+  };
+  let stale = false;
+  const refetch = async (p) => {
+    try {
+      const { data, error } = await sb.from("docs").select(SEL).eq("path", p); if (error) throw error;
+      if (data.length) fromServer(data[0]); else if (!pending.get(p) && docs.delete(p)) changed(p);
+    } catch (e) { stale = true; }
+  };
+  const fail = (er) => { const e = new Error(er.message || "Could not save"); e.code = er.code === "P0002" || er.code === "42501" ? "invalid_argument" : er.code && !/^PGRST/.test(er.code) ? er.code : "unavailable"; return e; };
+  async function send(p, fn, args, local) {
+    pending.set(p, (pending.get(p) || 0) + 1);
+    if (local !== undefined) { if (local === null) docs.delete(p); else docs.set(p, local); changed(p, true); }
+    let err = null;
+    try { const { data, error } = await sb.rpc(fn, args); if (error) throw fail(error); const b = best.get(p); if (!b || +data.version > +b.version) best.set(p, data); }
+    catch (e) { err = e.code ? e : fail(e); bad.add(p); }
+    const n = pending.get(p) - 1;
+    if (n > 0) pending.set(p, n);
+    else { pending.delete(p); const b = best.get(p); best.delete(p); if (b) fromServer(b); if (bad.delete(p)) refetch(p); }
+    if (err) throw err;
+  }
+  async function load(s) {
+    if (s.path) { const { data, error } = await sb.from("docs").select(SEL).eq("path", s.path); if (error) throw error; data.forEach(fromServer); return; }
+    for (let at = 0; ; at += 1000) {
+      let q = sb.from("docs").select(SEL).eq("col", s.col);
+      if (s.gte) q = q.gte("data->>" + s.gte[0], s.gte[1]);
+      const { data, error } = await q.order("path").range(at, at + 999);
+      if (error) throw error;
+      data.forEach(fromServer);
+      if (data.length < 1000) return;
+    }
+  }
+  const loadUntilDone = (s, wait = 2000) => load(s).catch((e) => { console.error(e); return new Promise((r) => setTimeout(r, wait)).then(() => loadUntilDone(s, Math.min(wait * 2, 30000))); });
+  let readyNow; const ready = new Promise((r) => (readyNow = r)); setTimeout(() => readyNow(), 8000);
+  function listen(spec, next) {
+    const s = { ...spec, next, live: false }; subs.add(s);
+    ready.then(() => loadUntilDone(s)).then(() => { s.live = true; emit(s); });
+    return () => subs.delete(s);
+  }
+  // after a dropped connection, read everything again so nothing said while offline is missed
+  const resync = () => { stale = false; subs.forEach((s) => { if (s.live) load(s).catch(() => (stale = true)); }); };
+  let joined = false;
+  sb.channel("maher-docs").on("postgres_changes", { event: "*", schema: "public", table: "docs" }, (ev) => {
+    const r = ev.new; if (!r || !r.path) return;
+    if ((ev.errors && ev.errors.length) || r.data == null || r.version == null) refetch(r.path); else fromServer(r);
+  }).subscribe((status) => {
+    if (status === "SUBSCRIBED") { onLine(true); if (joined) resync(); joined = true; readyNow(); }
+    else onLine(false);
+  });
+  window.addEventListener("online", () => { if (stale) resync(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && stale) resync(); });
+  const doc = (p) => ({ id: idOf(p), path: p,
+    set: (d) => send(p, "set_doc", { p_path: p, p_data: d }, clone(d)),
+    update: (d) => send(p, "merge_doc", { p_path: p, p_data: d }, docs.has(p) ? merge(docs.get(p), clone(d)) : undefined),
+    delete: () => send(p, "delete_doc", { p_path: p }, null),
+    onSnapshot: (next) => listen({ path: p }, next) });
+  const query = (col, match, gte) => ({ path: col,
+    where: (f, op, v) => query(col, (d) => (!match || match(d)) && (op === ">=" ? d[f] >= v : op === "==" ? d[f] === v : true), op === ">=" ? [f, v] : gte),
+    onSnapshot: (next) => listen({ col, match, gte }, next),
+    doc: (id) => doc(col + "/" + (id || uid())) });
+  return { doc, collection: (c) => query(c) };
+}
+
+// ---------- sign in ----------
+function loginView() {
+  return `<form id="loginForm" class="panel stack" style="max-width:380px;margin:32px auto">
+    <div><h2>${esc(t("loginTitle"))}</h2><p class="sub">${esc(t("loginSub"))}</p></div>
+    <label class="f">${esc(t("email"))}<input type="email" id="lg-email" autocomplete="username" required></label>
+    <label class="f">${esc(t("password"))}<input type="password" id="lg-pass" autocomplete="current-password" required></label>
+    ${S.loginErr ? `<p class="banner bad">${esc(S.loginErr)}</p>` : ""}
+    <div><button class="btn primary" type="submit" ${S.loggingIn ? "disabled" : ""}>${esc(t("signIn"))}</button></div></form>`;
+}
+document.addEventListener("submit", async (ev) => {
+  if (ev.target.id !== "loginForm") return;
+  ev.preventDefault(); ev.stopImmediatePropagation();
+  S.loggingIn = true; S.loginErr = ""; render();
+  const { error } = await sb.auth.signInWithPassword({ email: $("#lg-email").value.trim(), password: $("#lg-pass").value });
+  S.loggingIn = false;
+  if (error) { S.loginErr = /invalid/i.test(error.message || "") ? t("loginBad") : t("noDb"); render(); return; }
+  connect();
+}, true);
+document.addEventListener("click", async (ev) => {
+  if (!ev.target.closest("[data-act=signOut]")) return;
+  ev.stopImmediatePropagation();
+  try { await sb.auth.signOut(); } catch (e) {}
+  location.reload();
+}, true);
+
 // ---------- connect ----------
+const sb = window.supabase && window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 render();
-(async () => {
-  let db = null;
-  try { db = await window.claude?.use?.("db"); } catch (e) { db = null; }
-  if (!db) { S.failed = true; render(); return; }
+async function connect() {
+  if (!sb) { S.failed = true; render(); return; }
+  S.auth = "checking"; S.failed = false; render();
+  const { data: { session }, error } = await sb.auth.getSession();
+  if (!session && error && !/session/i.test(error.message || "")) { S.failed = true; render(); setTimeout(connect, 5000); return; }
+  if (!session) { S.auth = "login"; render(); return; }
+  const staff = await sb.rpc("is_staff");
+  if (staff.error) { S.auth = "in"; S.failed = true; render(); setTimeout(connect, 5000); return; }
+  if (staff.data !== true) { S.auth = "denied"; render(); return; }
+  S.auth = "in"; render();
+  const db = supabaseDb(sb, (on) => { if (S.offline !== !on) { S.offline = !on; if (S.ready) scheduleRender(); } });
   S.db = db;
-  try { const user = await window.claude.use("user"); if (user) { const w = await user.can("data.write"); if (w === false) S.canWrite = false; } } catch (e) {}
   let pending = 6; const done = () => { if (--pending <= 0 && !S.ready) { S.ready = true; render(); return; } if (S.ready) scheduleRender(); else render(); };
   const intoMap = (m) => (snap) => { m.clear(); snap.docs.forEach((d) => m.set(d.id, { ...d.data(), id: d.id })); done(); };
   const onErr = (e) => { console.error(e); done(); };
@@ -1113,6 +1248,7 @@ render();
   db.collection("payments").onSnapshot(intoMap(S.payments), onErr);
   db.collection("sales").where("date", ">=", addDays(dateKey(), -14)).onSnapshot(intoMap(S.days), onErr);
   db.doc("settings/main").onSnapshot((d) => { if (d.exists) S.settings = { ...S.settings, ...d.data() }; done(); }, onErr);
-})();
+}
+connect();
 })();
 </script>

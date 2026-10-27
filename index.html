@@ -1,0 +1,1118 @@
+<title>Maher Market System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a shop ledger. Tab bar on top, one working surface below; the till splits into item grid + receipt column. */
+:root {
+  --bg: #f2f6f1;
+  --surface: #ffffff;
+  --sunken: #eceee9;
+  --line: #d9ddd5;
+  --ink: #1c231f;
+  --muted: #5f6a63;
+  --accent: #0f6b55;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe8;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd9;
+  --bad: #b3261e;
+  --bad-soft: #fbe4e2;
+  --good: #1d7a3c;
+  --font: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* market colours: a soft tint + a matching ink for each */
+  --band: #0e5a44; --band-ink: #ffffff; --band-muted: rgba(255,255,255,.72);
+  --t-green: #dcf2e6; --i-green: #0f6b48;  --t-blue: #dfeafb; --i-blue: #1f5aa8;
+  --t-purple: #ebe5fb; --i-purple: #5a3eae; --t-amber: #fcedd0; --i-amber: #8a5600;
+  --t-coral: #fde1d9; --i-coral: #b23d26;  --t-teal: #d6f1f0; --i-teal: #0c6b6b;
+  --t-pink: #fbe1ee; --i-pink: #a02a66;    --t-olive: #ebf0d3; --i-olive: #586611;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121614; --surface: #1a201d; --sunken: #232a26; --line: #323b36; --ink: #e7ece8; --muted: #9aa69f;
+  --accent: #3fbf97; --accent-ink: #08140f; --accent-soft: #173a2f; --warn: #e8b04f; --warn-soft: #3a2c12;
+  --bad: #f2867d; --bad-soft: #3d1c1a; --good: #6fd08f; --band: #0f2a21; --band-ink: #eaf5ef; --band-muted: rgba(234,245,239,.65);
+  --t-green: #163a2b; --i-green: #7ed8aa; --t-blue: #1a2b44; --i-blue: #92b9f2; --t-purple: #2a2342; --i-purple: #baa8f6; --t-amber: #3a2b11; --i-amber: #f1c272;
+  --t-coral: #3e2019; --i-coral: #f4a18d; --t-teal: #113534; --i-teal: #7fd7d5; --t-pink: #3b1c2b; --i-pink: #f2a3c9; --t-olive: #2b3014; --i-olive: #c7d47c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1a201d; --sunken: #232a26; --line: #323b36; --ink: #e7ece8; --muted: #9aa69f;
+  --accent: #3fbf97; --accent-ink: #08140f; --accent-soft: #173a2f; --warn: #e8b04f; --warn-soft: #3a2c12;
+  --bad: #f2867d; --bad-soft: #3d1c1a; --good: #6fd08f; --band: #0f2a21; --band-ink: #eaf5ef; --band-muted: rgba(234,245,239,.65);
+  --t-green: #163a2b; --i-green: #7ed8aa; --t-blue: #1a2b44; --i-blue: #92b9f2; --t-purple: #2a2342; --i-purple: #baa8f6; --t-amber: #3a2b11; --i-amber: #f1c272;
+  --t-coral: #3e2019; --i-coral: #f4a18d; --t-teal: #113534; --i-teal: #7fd7d5; --t-pink: #3b1c2b; --i-pink: #f2a3c9; --t-olive: #2b3014; --i-olive: #c7d47c; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-row { display: flex; align-items: center; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: .01em; margin-inline-end: auto; }
+.brand small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
+.rate { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+nav.tabs button { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px 12px; border-radius: var(--r); cursor: pointer; position: relative; }
+nav.tabs button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+nav.tabs .dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-inline-start: 6px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-family: var(--mono); }
+main { padding-block: 16px 48px; }
+h2 { font-size: 20px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 16px; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+.num, td.n, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+button, input, select { font: inherit; color: inherit; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: var(--r); cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.danger { color: var(--bad); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=text], input[type=number], input[type=date], input[type=search], input[type=tel], select {
+  border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 8px 10px; min-width: 0; width: 100%; }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+label.f.chk { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.stack { display: grid; gap: 16px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: start; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; background: var(--sunken); }
+[dir=rtl] th { text-transform: none; letter-spacing: 0; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: end; }
+td.wrapc { white-space: normal; min-width: 160px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.pill.ex { background: var(--sunken); color: var(--muted); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; }
+.kpi b { display: block; font-family: var(--mono); font-size: 22px; font-weight: 600; }
+.kpi span { color: var(--muted); font-size: 13px; }
+.kpi em { font-style: normal; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.banner { padding: 10px 14px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); font-weight: 500; }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* Till */
+.till { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .till { grid-template-columns: minmax(0, 1fr); } }
+.search-big { font-size: 18px !important; padding: 12px 14px !important; }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+.item { text-align: start; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 10px; cursor: pointer; display: grid; gap: 2px; min-height: 78px; }
+.item:hover { border-color: var(--accent); }
+.item .nm { font-weight: 600; line-height: 1.25; }
+.item .pr { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+.item .st { font-size: 12px; color: var(--muted); }
+.item.weighed { background: var(--accent-soft); }
+.item.out { opacity: .55; }
+.receipt { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 110px); }
+.cart-line { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.cart-line .q { display: flex; gap: 4px; align-items: center; }
+.cart-line .q button { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 700; }
+.total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0 4px; }
+.total b { font-family: var(--mono); font-size: 26px; }
+.total .lbp { font-family: var(--mono); color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 7px 12px; cursor: pointer; font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.change { font-family: var(--mono); font-size: 15px; padding: 8px 10px; background: var(--sunken); border-radius: var(--r); }
+.receipt-paper { font-family: var(--mono); font-size: 13px; white-space: pre-wrap; background: var(--sunken); padding: 12px; border-radius: var(--r); }
+
+.drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
+.drawer { position: fixed; z-index: 21; inset-block: 0; inset-inline-end: 0; width: min(460px, 100%); background: var(--surface); padding: 20px max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) 16px; overflow-y: auto; border-inline-start: 1px solid var(--line); }
+.drawer .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.toast { position: fixed; z-index: 30; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); inset-inline-start: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: var(--r); font-weight: 600; }
+[dir=rtl] .toast { transform: translateX(50%); }
+.muted { color: var(--muted); }
+/* colour layer */
+body::before { background: var(--band); }
+header.top { background: var(--band); border-bottom: 0; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.brand { color: var(--band-ink); }
+.brand small, .rate { color: var(--band-muted); }
+#langBtn { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: var(--band-ink); }
+nav.tabs button { color: var(--band-muted); }
+nav.tabs button:hover { color: var(--band-ink); background: rgba(255,255,255,.08); }
+nav.tabs button[aria-current="page"] { background: var(--tint); color: var(--ink); }
+nav.tabs button[data-tab=till], main[data-tab=till] { --tint: var(--t-green); --ink: var(--i-green); }
+nav.tabs button[data-tab=stock], main[data-tab=stock] { --tint: var(--t-blue); --ink: var(--i-blue); }
+nav.tabs button[data-tab=suppliers], main[data-tab=suppliers] { --tint: var(--t-purple); --ink: var(--i-purple); }
+nav.tabs button[data-tab=boxes], main[data-tab=boxes] { --tint: var(--t-amber); --ink: var(--i-amber); }
+nav.tabs button[data-tab=customers], main[data-tab=customers] { --tint: var(--t-coral); --ink: var(--i-coral); }
+nav.tabs button[data-tab=payments], main[data-tab=payments] { --tint: var(--t-teal); --ink: var(--i-teal); }
+nav.tabs button[data-tab=today], main[data-tab=today] { --tint: var(--t-pink); --ink: var(--i-pink); }
+nav.tabs button[data-tab=settings], main[data-tab=settings] { --tint: var(--sunken); --ink: var(--ink); }
+main h2 { color: var(--ink); }
+main .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+main[data-tab=till] .btn.primary, main[data-tab=settings] .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+main .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+main th { background: var(--tint); color: var(--ink); }
+.tinted { background: var(--tint) !important; border-color: transparent !important; }
+.tinted .nm { color: var(--ink); }
+.item.tinted:hover { border-color: var(--ink) !important; }
+.cat-h { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--tint); color: var(--ink); }
+.cat-h .muted { color: var(--ink); opacity: .7; }
+.kpis .kpi:nth-child(4n+1) { background: var(--t-green); border-color: transparent; } .kpis .kpi:nth-child(4n+1) b { color: var(--i-green); }
+.kpis .kpi:nth-child(4n+2) { background: var(--t-blue); border-color: transparent; } .kpis .kpi:nth-child(4n+2) b { color: var(--i-blue); }
+.kpis .kpi:nth-child(4n+3) { background: var(--t-amber); border-color: transparent; } .kpis .kpi:nth-child(4n+3) b { color: var(--i-amber); }
+.kpis .kpi:nth-child(4n+4) { background: var(--t-purple); border-color: transparent; } .kpis .kpi:nth-child(4n+4) b { color: var(--i-purple); }
+.receipt { border-top: 4px solid var(--i-green); }
+.total b { color: var(--i-green); }
+.linkbtn { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; text-align: start; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+tr.clickrow { cursor: pointer; } tr.clickrow:hover td { background: var(--tint, var(--sunken)); }
+.linkbtn:hover { color: var(--accent); text-decoration-color: currentColor; }
+a { color: var(--accent); }
+.sup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px; align-items: start; }
+.lines { display: grid; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) { .item, .btn { transition: border-color .12s; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div class="brand" id="brand"></div>
+      <span class="rate" id="rateTag"></span>
+      <button class="btn small" id="langBtn" data-act="lang"></button>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"><div class="empty">Loading…</div></main>
+<div id="overlay"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+
+// ---------- text ----------
+const T = {
+  en: {
+    brand: "Moasaset Maher Al Tijariya", brandSub: "Shop system",
+    tab_till: "Till", tab_stock: "Products & stock", tab_boxes: "Opened boxes", tab_customers: "Debts",
+    tab_payments: "Payments", tab_today: "Today", tab_settings: "Settings",
+    lang: "عربي", rate: "Rate", perUsd: "LBP per $1",
+    loading: "Loading…", noDb: "This page could not connect to its database. Open it from claude.ai while signed in to save sales and stock.",
+    readOnly: "You can view this page but not change it. Ask the owner for Contributor access.",
+    scan: "Scan a barcode or type a product name", fresh: "Weighed items", allItems: "Products",
+    inStock: "in stock", out: "Out of stock", noProducts: "No products yet. Add your first product in Products & stock.",
+    basket: "Current sale", emptyBasket: "Scan or tap an item to start a sale.", total: "Total", vatIncl: "includes VAT",
+    cash: "Cash", credit: "On account", paidUsd: "Paid in $", paidLbp: "Paid in LBP", change: "Change",
+    pickCustomer: "Choose customer", finish: "Finish sale", clear: "Clear", priceFromScale: "Price from scale",
+    enterPrice: "Enter the price the scale shows", add: "Add", short: "Not enough paid yet",
+    saleDone: "Sale saved", receipt: "Receipt", newSale: "New sale", overLimit: "This passes the customer's limit",
+    notFound: "No product with this barcode", example: "example",
+    addProduct: "Add product", editProduct: "Edit product", name: "Name (English)", nameAr: "Name (Arabic)", barcode: "Barcode",
+    category: "Category", price: "Sell price ($)", cost: "Cost ($)", boxSize: "Pieces per box", reorder: "Reorder when total is at or below",
+    weighed: "Sold by weight (price from the scale)", save: "Save", cancel: "Cancel", del: "Delete", confirmDel: "Tap again to delete",
+    total_pcs: "Total", shelf: "On shelf", openBox: "Open box", closed: "Closed boxes", status: "Status",
+    reorderNow: "Reorder now", low: "Low", ok: "OK", receive: "Receive delivery", count: "Count",
+    boxes: "Boxes", pieces: "Loose pieces", newCost: "New cost per piece ($, optional)", toWhere: "Put loose pieces",
+    received: "Delivery added to stock", counted: "Count saved", reorderList: "Reorder list", reorderSub: "Items at or below their reorder level. Order these from suppliers.",
+    allGood: "Nothing to reorder right now.", searchProducts: "Search products", removeExamples: "Remove example products",
+    examplesGone: "Example products removed",
+    boxesSub: "Where stock sits: on the shelf, in an opened box, or in closed boxes in storage. Sales come off the shelf first.",
+    refill: "Refill the shelf", refillSub: "Shelf is nearly empty but there are pieces in the back.", nothingRefill: "All shelves are stocked.",
+    openABox: "Open a box", toShelf: "Move to shelf", moved: "Moved to shelf", opened: "Box opened", noBoxItems: "No products with boxes yet. Set \"Pieces per box\" on a product.",
+    custSub: "Customers who take goods now and pay later. Late after 7 days.", addCustomer: "Add customer", phone: "Phone",
+    limit: "Credit limit ($)", owes: "Owes", since: "Unpaid since", days: "days", late: "Late", recordPay: "Record payment",
+    history: "History", amount: "Amount", currency: "Currency", note: "Note", payDone: "Payment recorded", noCustomers: "No customers on account yet.",
+    sale: "Sale", payment: "Payment", copyReminder: "Copy reminder", copied: "Copied", totalOwed: "Total owed to the shop",
+    reminder: (n, a) => `Hello ${n}, this is Moasaset Maher Al Tijariya. Your balance with us is ${a}. Thank you.`,
+    paySub: "Bills and deliveries you need to pay, and what you already paid.", addPay: "Add payment",
+    to: "To whom", what: "What for", due: "Due date", upcoming: "Coming up", paid: "Paid", markPaid: "Mark paid", method: "Paid how",
+    overdue: "Overdue", dueWeek: "Due in the next 7 days", dueMonth: "Due in the next 30 days", noUpcoming: "Nothing to pay. Add bills, rent or deliveries here.",
+    noPaid: "No payments made yet.", paidOn: "Paid on", transfer: "Transfer", fromTill: "Cash from till", fromOwner: "Owner's cash",
+    sales: "Sales", receipts: "Receipts", avgBasket: "Average basket", creditSales: "Sold on account", cashTaken: "Cash taken",
+    topItems: "Top items today", noSales: "No sales yet today.", lastWeek: "Same day last week", alerts: "Needs attention",
+    a_reorder: "items to reorder", a_refill: "shelves to refill", a_late: "customers late to pay", a_due: "payments due this week",
+    last7: "Last 7 days", day: "Day", qty: "Qty",
+    settingsSub: "The exchange rate is used at the till for LBP payments and change.", rateLbp: "Exchange rate (LBP per $1)",
+    vat: "VAT % (included in prices)", shelfMin: "Warn to refill when shelf has this many or fewer", saved: "Saved",
+    addFirst: "Add your first", weighedTag: "by weight",
+    tab_suppliers: "Suppliers", supSub: "Who brings each product, and how to reach them.", addSupplier: "Add supplier", editSupplier: "Edit supplier",
+    supplier: "Supplier", noSupplier: "No supplier set", supName: "Name", phone2: "Second phone", company: "Company",
+    works: "Works", forCompany: "For a company", independent: "Independent (works alone)", visits: "Visit / delivery days",
+    address: "Area / address", notes: "Notes", supplies: "Products they bring", noSuppliers: "No suppliers yet. Add the people who deliver to the shop.",
+    debtCust: "Customer debts", debtStaff: "Employee debts", staffSub: "Advances (salaf) and goods employees took. Paid back in cash or from their salary.",
+    addStaff: "Add employee", addDebt: "Add debt", debt: "Took", fromSalary: "Taken from salary", noStaff: "No employee debts yet.", debtDone: "Debt added",
+    totalStaff: "Total employees owe", employee: "employee", role: "Job (cashier, stock…)", secAll: "All", secShelf: "Shelves in the store", secOther: "Other weighed", shelfOther: "Other shelf items", productInfo: "Product", setSupplier: "Set the supplier in Edit product", item: "Item", copyPhone: "Copy number", delSupBlocked: "Remove this supplier from its products first", pickSupplier: "Choose who brings this product", link: "Link", orNew: "Or add a new supplier", saveLink: "Save and link", linked: "Supplier linked", changeSup: "Change supplier"
+  },
+  ar: {
+    brand: "مؤسسة ماهر التجارية", brandSub: "نظام المحل",
+    tab_till: "الصندوق", tab_stock: "المنتجات والمخزون", tab_boxes: "الكراتين المفتوحة", tab_customers: "الديون",
+    tab_payments: "الدفعات", tab_today: "اليوم", tab_settings: "الإعدادات",
+    lang: "English", rate: "السعر", perUsd: "ل.ل. لكل ١$",
+    loading: "جار التحميل…", noDb: "تعذر الاتصال بقاعدة البيانات. افتح الصفحة من claude.ai بعد تسجيل الدخول لحفظ المبيعات والمخزون.",
+    readOnly: "يمكنك مشاهدة الصفحة فقط. اطلب من المالك صلاحية المساهم.",
+    scan: "امسح الباركود أو اكتب اسم المنتج", fresh: "أصناف بالوزن", allItems: "المنتجات",
+    inStock: "بالمخزون", out: "نفد", noProducts: "لا يوجد منتجات بعد. أضف أول منتج من صفحة المنتجات والمخزون.",
+    basket: "الفاتورة الحالية", emptyBasket: "امسح أو اضغط على صنف لبدء البيع.", total: "المجموع", vatIncl: "يشمل الضريبة",
+    cash: "نقدي", credit: "على الحساب", paidUsd: "المدفوع بالدولار", paidLbp: "المدفوع بالليرة", change: "الباقي",
+    pickCustomer: "اختر الزبون", finish: "إنهاء البيع", clear: "مسح", priceFromScale: "السعر من الميزان",
+    enterPrice: "أدخل السعر الظاهر على الميزان", add: "أضف", short: "المبلغ المدفوع غير كاف",
+    saleDone: "تم حفظ البيع", receipt: "الإيصال", newSale: "بيع جديد", overLimit: "هذا يتجاوز سقف دين الزبون",
+    notFound: "لا يوجد منتج بهذا الباركود", example: "مثال",
+    addProduct: "إضافة منتج", editProduct: "تعديل منتج", name: "الاسم (إنكليزي)", nameAr: "الاسم (عربي)", barcode: "الباركود",
+    category: "الفئة", price: "سعر البيع ($)", cost: "الكلفة ($)", boxSize: "عدد القطع بالكرتونة", reorder: "اطلب عندما يصبح المجموع أو أقل",
+    weighed: "يباع بالوزن (السعر من الميزان)", save: "حفظ", cancel: "إلغاء", del: "حذف", confirmDel: "اضغط مرة ثانية للحذف",
+    total_pcs: "المجموع", shelf: "على الرف", openBox: "بالكرتونة المفتوحة", closed: "كراتين مغلقة", status: "الحالة",
+    reorderNow: "اطلب الآن", low: "قليل", ok: "جيد", receive: "استلام بضاعة", count: "جرد",
+    boxes: "كراتين", pieces: "قطع مفردة", newCost: "كلفة القطعة الجديدة ($، اختياري)", toWhere: "ضع القطع المفردة",
+    received: "تمت إضافة البضاعة للمخزون", counted: "تم حفظ الجرد", reorderList: "قائمة الطلب", reorderSub: "أصناف وصلت لحد الطلب أو أقل. اطلبها من الموردين.",
+    allGood: "لا شيء للطلب الآن.", searchProducts: "ابحث عن منتج", removeExamples: "احذف المنتجات التجريبية",
+    examplesGone: "تم حذف المنتجات التجريبية",
+    boxesSub: "أين البضاعة: على الرف، بكرتونة مفتوحة، أو بكراتين مغلقة بالمستودع. البيع ينقص من الرف أولا.",
+    refill: "عبّئ الرف", refillSub: "الرف شبه فارغ ويوجد قطع بالخلف.", nothingRefill: "كل الرفوف معبأة.",
+    openABox: "افتح كرتونة", toShelf: "انقل للرف", moved: "تم النقل للرف", opened: "تم فتح كرتونة", noBoxItems: "لا يوجد منتجات بكراتين بعد. حدد \"عدد القطع بالكرتونة\" للمنتج.",
+    custSub: "زبائن يأخذون الآن ويدفعون لاحقا. متأخر بعد ٧ أيام.", addCustomer: "إضافة زبون", phone: "الهاتف",
+    limit: "سقف الدين ($)", owes: "عليه", since: "غير مدفوع منذ", days: "يوم", late: "متأخر", recordPay: "تسجيل دفعة",
+    history: "السجل", amount: "المبلغ", currency: "العملة", note: "ملاحظة", payDone: "تم تسجيل الدفعة", noCustomers: "لا يوجد زبائن على الحساب بعد.",
+    sale: "بيع", payment: "دفعة", copyReminder: "انسخ التذكير", copied: "تم النسخ", totalOwed: "مجموع الديون للمحل",
+    reminder: (n, a) => `مرحبا ${n}، معك مؤسسة ماهر التجارية. رصيدك لدينا ${a}. شكرا لك.`,
+    paySub: "الفواتير والبضائع التي يجب دفعها، وما تم دفعه.", addPay: "إضافة دفعة",
+    to: "لمن", what: "مقابل", due: "تاريخ الاستحقاق", upcoming: "القادمة", paid: "المدفوعة", markPaid: "تم الدفع", method: "طريقة الدفع",
+    overdue: "متأخرة", dueWeek: "مستحق خلال ٧ أيام", dueMonth: "مستحق خلال ٣٠ يوما", noUpcoming: "لا شيء للدفع. أضف الفواتير أو الإيجار أو البضائع هنا.",
+    noPaid: "لا يوجد دفعات بعد.", paidOn: "تاريخ الدفع", transfer: "تحويل", fromTill: "نقدا من الصندوق", fromOwner: "نقدا من المالك",
+    sales: "المبيعات", receipts: "عدد الفواتير", avgBasket: "متوسط الفاتورة", creditSales: "مبيع على الحساب", cashTaken: "النقد المقبوض",
+    topItems: "الأكثر مبيعا اليوم", noSales: "لا يوجد مبيعات اليوم بعد.", lastWeek: "نفس اليوم الأسبوع الماضي", alerts: "يحتاج انتباه",
+    a_reorder: "أصناف للطلب", a_refill: "رفوف للتعبئة", a_late: "زبائن متأخرون بالدفع", a_due: "دفعات مستحقة هذا الأسبوع",
+    last7: "آخر ٧ أيام", day: "اليوم", qty: "الكمية",
+    settingsSub: "سعر الصرف يستخدم بالصندوق للدفع والباقي بالليرة.", rateLbp: "سعر الصرف (ل.ل. لكل ١$)",
+    vat: "الضريبة % (ضمن الأسعار)", shelfMin: "نبّه للتعبئة عندما يصبح الرف هذا العدد أو أقل", saved: "تم الحفظ",
+    addFirst: "أضف أول", weighedTag: "بالوزن",
+    tab_suppliers: "الموردون", supSub: "من يجلب كل منتج، وكيف تتواصل معه.", addSupplier: "إضافة مورد", editSupplier: "تعديل مورد",
+    supplier: "المورد", noSupplier: "لا يوجد مورد محدد", supName: "الاسم", phone2: "هاتف ثان", company: "الشركة",
+    works: "يعمل", forCompany: "لصالح شركة", independent: "مستقل (يعمل وحده)", visits: "أيام الزيارة / التسليم",
+    address: "المنطقة / العنوان", notes: "ملاحظات", supplies: "المنتجات التي يجلبها", noSuppliers: "لا يوجد موردون بعد. أضف الأشخاص الذين يوصلون البضاعة للمحل.",
+    debtCust: "الديون على الزبائن", debtStaff: "الديون على الموظفين", staffSub: "سلف وبضاعة أخذها الموظفون. تسدد نقدا أو من الراتب.",
+    addStaff: "إضافة موظف", addDebt: "إضافة دين", debt: "أخذ", fromSalary: "خصم من الراتب", noStaff: "لا يوجد ديون على الموظفين بعد.", debtDone: "تمت إضافة الدين",
+    totalStaff: "مجموع ديون الموظفين", employee: "موظف", role: "الوظيفة (كاشير، مخزن…)", secAll: "الكل", secShelf: "رفوف المحل", secOther: "أصناف أخرى بالوزن", shelfOther: "أصناف رفوف أخرى", productInfo: "المنتج", setSupplier: "حدد المورد من تعديل المنتج", item: "الصنف", copyPhone: "انسخ الرقم", delSupBlocked: "أزل هذا المورد من منتجاته أولا", pickSupplier: "اختر من يجلب هذا المنتج", link: "ربط", orNew: "أو أضف موردا جديدا", saveLink: "حفظ وربط", linked: "تم ربط المورد", changeSup: "تغيير المورد"
+  }
+};
+let lang = "en";
+try { lang = localStorage.getItem("maher-lang") || "en"; } catch (e) {}
+const t = (k) => (T[lang][k] ?? T.en[k] ?? k);
+
+// ---------- state ----------
+const S = {
+  db: null, canWrite: true, ready: false, failed: false,
+  products: new Map(), suppliers: new Map(), customers: new Map(), payments: new Map(), days: new Map(),
+  settings: { rate: 89500, vat: 11, shelfMin: 2 },
+  tab: "till", cart: [], pay: { method: "cash", usd: "", lbp: "", customer: "" },
+  q: "", stockQ: "", stockSec: "all", debtTab: "customers", shelfCat: "all", lastReceipt: null, weighPending: null, payTab: "upcoming",
+};
+const TABS = ["till", "stock", "suppliers", "boxes", "customers", "payments", "today", "settings"];
+try { const h = location.hash.slice(1); if (TABS.includes(h)) S.tab = h; } catch (e) {}
+
+// ---------- helpers ----------
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = (v, d = 0) => { const n = parseFloat(String(v).replace(/,/g, "")); return Number.isFinite(n) ? n : d; };
+const usd = (n) => "$" + (Math.round(num(n) * 100) / 100).toFixed(2);
+const roundLbp = (n) => Math.round(num(n) / 1000) * 1000;
+const lbp = (n) => roundLbp(n).toLocaleString("en-US") + " LBP";
+const toLbp = (u) => u * S.settings.rate;
+const dateKey = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
+const addDays = (key, n) => { const d = new Date(key + "T12:00:00"); d.setDate(d.getDate() + n); return dateKey(d); };
+const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000);
+const timeStr = (iso) => new Date(iso).toLocaleTimeString(lang === "ar" ? "ar-LB" : "en-GB", { hour: "2-digit", minute: "2-digit" });
+const pname = (p) => (lang === "ar" ? (p.nameAr || p.name) : (p.name || p.nameAr)) || "—";
+const boxSize = (p) => Math.max(1, Math.round(num(p.boxSize, 1)));
+const totalOf = (p) => num(p.shelf) + num(p.openBox) + num(p.closed) * boxSize(p);
+const isReorder = (p) => !p.weighed && totalOf(p) <= num(p.reorder);
+const needsRefill = (p) => !p.weighed && boxSize(p) > 1 && num(p.shelf) <= num(S.settings.shelfMin) && (num(p.openBox) + num(p.closed)) > 0;
+const supOf = (p) => (p && p.supplierId && S.suppliers.get(p.supplierId)) || null;
+const telLink = (n) => n ? `<a class="mono" href="tel:${esc(String(n).replace(/[^0-9+]/g, ""))}">${esc(n)}</a>` : "";
+// Each open tab is one till. It is the only writer of its own counters, so two tills never overwrite each other.
+const DEV = (() => { try { let d = sessionStorage.getItem("maher-dev"); if (!d) { d = "t" + uid(); sessionStorage.setItem("maher-dev", d); } return d; } catch (e) { return "t" + uid(); } })();
+const entriesOf = (c) => (Array.isArray(c.entries) ? c.entries : Object.values(c.entries || {})).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
+// Entries are keyed by id and merged in, so two people adding to one account at once both count.
+function addEntry(c, e) {
+  const eid = uid(); const add = { [eid]: e };
+  if (Array.isArray(c.entries) && c.entries.length) { const all = {}; c.entries.forEach((x, i) => (all["old" + i] = x)); return S.db.doc("customers/" + c.id).update({ entries: { ...all, ...add } }); }
+  return S.db.doc("customers/" + c.id).update({ entries: add });
+}
+// A stock action writes the shelf / open box / closed boxes as they are now and marks every sale so far as counted in.
+const stockBase = (p, changes) => ({ shelf: num(p.shelf), openBox: num(p.openBox), closed: num(p.closed), soldBase: num(p._soldTotal), ...changes });
+const isStaff = (c) => c.kind === "staff";
+const isLate = (c) => { if (isStaff(c)) return false; const s = unpaidSince(c); return !!s && daysBetween(s, dateKey()) > 7; };
+const balanceOf = (c) => entriesOf(c).reduce((s, e) => s + (e.type === "sale" ? num(e.amount) : -num(e.amount)), 0);
+const unpaidSince = (c) => {
+  let bal = 0, start = null;
+  for (const e of entriesOf(c)) {
+    bal += e.type === "sale" ? num(e.amount) : -num(e.amount);
+    if (bal <= 0.004) start = null; else if (!start) start = e.at.slice(0, 10);
+  }
+  return start;
+};
+let toastTimer;
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 2200); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+async function write(fn, okMsg) {
+  if (!S.db) { toast(t("noDb")); return false; }
+  try { await fn(); if (okMsg) toast(okMsg); return true; }
+  catch (e) {
+    console.error(e);
+    if (e && e.code === "invalid_argument") { S.canWrite = false; render(); toast(t("readOnly")); }
+    else if (e && e.code === "unavailable") { toast("Connection problem. Try again."); }
+    else toast((e && e.message) || "Could not save");
+    return false;
+  }
+}
+
+// ---------- stock movements ----------
+function takeFromStock(p, qty) {
+  let shelf = num(p.shelf), open = num(p.openBox), closed = num(p.closed); const bs = boxSize(p);
+  let need = qty;
+  const fromShelf = Math.min(shelf, need); shelf -= fromShelf; need -= fromShelf;
+  while (need > 0) {
+    if (open <= 0 && closed > 0) { closed -= 1; open += bs; }
+    if (open <= 0) { shelf -= need; need = 0; break; } // sold more than recorded: shelf goes negative so the count shows it
+    const fromOpen = Math.min(open, need); open -= fromOpen; need -= fromOpen;
+  }
+  return { shelf, openBox: open, closed };
+}
+
+// ---------- render ----------
+function renderHeader() {
+  document.documentElement.lang = lang; document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  $("#brand").innerHTML = `${esc(t("brand"))}<small>${esc(t("brandSub"))}</small>`;
+  $("#rateTag").textContent = `${t("rate")}: ${S.settings.rate.toLocaleString("en-US")} ${t("perUsd")}`;
+  $("#langBtn").textContent = t("lang");
+  const prods = [...S.products.values()];
+  const counts = {
+    stock: prods.filter(isReorder).length,
+    boxes: prods.filter(needsRefill).length,
+    customers: [...S.customers.values()].filter(isLate).length,
+    payments: [...S.payments.values()].filter((p) => !p.paidAt && p.due && p.due < dateKey()).length,
+  };
+  morph($("#tabs"), TABS.map((k) => `<button data-act="tab" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ""}>${esc(t("tab_" + k))}${counts[k] ? `<span class="dot">${counts[k]}</span>` : ""}</button>`).join(""));
+}
+
+// Update the page in place instead of rebuilding it, so a button under the cashier's finger
+// stays the same button while other tills' sales arrive.
+function morphNode(a, b) {
+  if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName) { a.replaceWith(b.cloneNode(true)); return; }
+  if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.nodeType !== 1) return;
+  for (const at of [...a.attributes]) if (!b.hasAttribute(at.name) && at.name !== "data-typed") a.removeAttribute(at.name);
+  for (const at of [...b.attributes]) if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
+  const tag = a.nodeName;
+  if (tag === "INPUT") {
+    if (a.type === "checkbox") { if (a !== document.activeElement) a.checked = b.hasAttribute("checked"); }
+    else if (b.hasAttribute("value") && a !== document.activeElement && a.value !== b.getAttribute("value") && !a.dataset.typed) a.value = b.getAttribute("value");
+    if (a.disabled !== b.hasAttribute("disabled")) a.disabled = b.hasAttribute("disabled");
+    return;
+  }
+  if (tag === "BUTTON" && a.disabled !== b.hasAttribute("disabled")) a.disabled = b.hasAttribute("disabled");
+  morphChildren(a, b);
+  if (tag === "SELECT" && a !== document.activeElement) { const sel = b.querySelector("option[selected]"); if (sel) a.value = sel.value; }
+}
+function morphChildren(a, b) {
+  const bk = [...b.childNodes];
+  bk.forEach((bn, i) => { const an = a.childNodes[i]; if (an) morphNode(an, bn); else a.appendChild(bn.cloneNode(true)); });
+  while (a.childNodes.length > bk.length) a.lastChild.remove();
+}
+function morph(el, html) { const tpl = document.createElement("template"); tpl.innerHTML = html; morphChildren(el, tpl.content); }
+// Live updates from other devices are bundled into at most one redraw every 150 ms.
+let renderTimer = null;
+function scheduleRender() { if (renderTimer) return; renderTimer = setTimeout(() => { renderTimer = null; render(); }, 150); }
+
+function render() {
+  if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+  renderHeader();
+  const main = $("#main");
+  // keep typed values and focus across live updates
+  const active = document.activeElement && document.activeElement.id;
+  const selStart = active && document.activeElement.selectionStart;
+  const vals = {}; main.querySelectorAll("input[id],select[id]").forEach((el) => { vals[el.id] = el.type === "checkbox" ? el.checked : el.value; });
+  let html = "";
+  if (!S.ready) html = `<div class="empty">${esc(S.failed ? t("noDb") : t("loading"))}</div>`;
+  else html = (!S.canWrite ? `<p class="banner">${esc(t("readOnly"))}</p><br>` : "") + VIEWS[S.tab]();
+  main.dataset.tab = S.tab;
+  if (main.dataset.shown !== S.tab) { main.innerHTML = html; main.dataset.shown = S.tab; } else morph(main, html);
+  main.querySelectorAll("input[id],select[id]").forEach((el) => {
+    if (el.dataset.fresh) return;
+    if (el.id in vals) { if (el.type === "checkbox") el.checked = vals[el.id]; else el.value = vals[el.id]; }
+  });
+  if (active) { const el = document.getElementById(active); if (el) { el.focus(); try { if (selStart != null) el.setSelectionRange(selStart, selStart); } catch (e) {} } }
+}
+
+const VIEWS = {};
+
+// Till
+VIEWS.till = () => {
+  const prods = [...S.products.values()];
+  if (!prods.length) return `<div class="panel empty">${esc(t("noProducts"))}</div>`;
+  const q = S.q.trim().toLowerCase();
+  const match = (p) => !q || (p.name || "").toLowerCase().includes(q) || (p.nameAr || "").includes(S.q.trim()) || (p.barcode || "").includes(q);
+  const weighed = prods.filter((p) => p.weighed && match(p)).sort((a, b) => pname(a).localeCompare(pname(b)));
+  const normal = prods.filter((p) => !p.weighed && match(p)).sort((a, b) => pname(a).localeCompare(pname(b))).slice(0, 60);
+  const tile = (p) => {
+    const tot = totalOf(p);
+    return `<button class="item ${p.weighed ? "weighed" : ""} ${!p.weighed && tot <= 0 ? "out" : ""} ${tintOf(p.category) ? "tinted" : ""}" ${tintStyle(p.category)} data-act="addItem" data-id="${esc(p.id)}">
+      <span class="nm">${esc(pname(p))}</span>
+      ${p.weighed ? "" : `<span class="pr">${usd(p.price)}</span>`}
+      <span class="st">${p.weighed ? "" : (tot <= 0 ? esc(t("out")) : `${tot} ${esc(t("inStock"))}`)}${p.example ? ` · ${esc(t("example"))}` : ""}</span></button>`;
+  };
+  return `<div class="till">
+    <section>
+      <input type="search" id="tillSearch" class="search-big" placeholder="${esc(t("scan"))}" autocomplete="off" data-in="q">
+      ${weighedGroups(weighed, tile)}
+      <h3 style="margin-top:16px">${esc(t("allItems"))}</h3>
+      <div class="items">${normal.map(tile).join("") || `<div class="muted">—</div>`}</div>
+    </section>
+    <aside class="panel receipt">${S.lastReceipt ? receiptView() : cartView()}</aside>
+  </div>`;
+};
+
+const WEIGH_CATS = ["Spices · بهارات", "Fridge: cheese & labneh · البراد: أجبان ولبنة", "Olives & pickles · زيتون ومكدوس ومخللات"];
+const SHELF_CATS = ["Cleaning supplies · مواد تنظيف", "Canned food · معلبات", "Chocolate & candy · شوكولا وسكاكر", "Snacks & chips · سناكات وشيبس",
+  "Drinks · مشروبات", "Rice, sugar & pantry · حبوب وسكر وتموين", "Pasta & sauces · معكرونة وصلصات", "Oil & ghee · زيت وسمنة", "Coffee & tea · قهوة وشاي",
+  "Dairy & eggs · ألبان وبيض", "Bread & bakery · خبز ومخبوزات", "Personal care · عناية شخصية", "Baby · أطفال", "Paper & plastic · ورق وبلاستيك"];
+const shelfCatKey = (p) => (p.category && !WEIGH_CATS.includes(p.category) ? p.category : "");
+function shelfGroups(items) {
+  const g = new Map(); items.forEach((p) => { const k = shelfCatKey(p); if (!g.has(k)) g.set(k, []); g.get(k).push(p); });
+  const idx = (k) => { const i = SHELF_CATS.indexOf(k); return k === "" ? 999 : i < 0 ? 500 : i; };
+  return [...g.keys()].sort((a, b) => idx(a) - idx(b) || a.localeCompare(b)).map((k) => ({ key: k, label: k ? catLabel(k) : t("shelfOther"), items: g.get(k) }));
+}
+function sectionKey(p) { if (!p.weighed) return "shelf"; return WEIGH_CATS.includes(p.category) ? p.category : "other"; }
+function sectionsOf(prods) {
+  const out = [{ key: "shelf", label: t("secShelf") }, ...WEIGH_CATS.map((c) => ({ key: c, label: catLabel(c) }))];
+  if (prods.some((p) => sectionKey(p) === "other")) out.push({ key: "other", label: t("secOther") });
+  return out.map((x) => ({ ...x, n: prods.filter((p) => sectionKey(p) === x.key).length }));
+}
+const TINTS = ["green", "blue", "purple", "amber", "coral", "teal", "pink", "olive"];
+const WEIGH_TINT = { 0: "amber", 1: "blue", 2: "olive" };
+function tintOf(cat) {
+  if (!cat) return "";
+  const w = WEIGH_CATS.indexOf(cat); if (w >= 0) return WEIGH_TINT[w];
+  const i = SHELF_CATS.indexOf(cat);
+  const n = i >= 0 ? i : [...String(cat)].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  return TINTS[n % TINTS.length];
+}
+const tintStyle = (cat) => { const k = tintOf(cat); return k ? `style="--tint:var(--t-${k});--ink:var(--i-${k})"` : ""; };
+function catLabel(c) { const parts = String(c || "").split(" · "); return parts.length === 2 ? (lang === "ar" ? parts[1] : parts[0]) : (c || t("fresh")); }
+function weighedGroups(list, tile) {
+  if (!list.length) return "";
+  const groups = new Map();
+  list.forEach((p) => { const k = p.category || ""; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+  const order = [...groups.keys()].sort((a, b) => { const ia = WEIGH_CATS.indexOf(a), ib = WEIGH_CATS.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b); });
+  return order.map((k) => `<h3 style="margin-top:16px"><span class="cat-h" ${tintStyle(k)}>${esc(catLabel(k))} <span class="muted" style="font-weight:500;font-size:13px">· ${esc(t("weighedTag"))}</span></span></h3><div class="items">${groups.get(k).map(tile).join("")}</div>`).join("");
+}
+function cartTotal() { return S.cart.reduce((s, l) => s + l.qty * l.price, 0); }
+function cartView() {
+  const tot = cartTotal();
+  const vatAmt = tot * S.settings.vat / (100 + S.settings.vat);
+  let lines = S.cart.map((l, i) => `<div class="cart-line">
+      <div><div style="font-weight:600">${esc(l.name)}</div><div class="muted mono" style="font-size:13px">${l.weighed ? esc(t("priceFromScale")) : `${l.qty} × ${usd(l.price)}`}</div></div>
+      <div class="mono" style="text-align:end;font-weight:600">${usd(l.qty * l.price)}</div>
+      <div class="q">${l.weighed ? "" : `<button data-act="qty" data-i="${i}" data-d="-1" aria-label="-">−</button><span class="mono" style="min-width:24px;text-align:center">${l.qty}</span><button data-act="qty" data-i="${i}" data-d="1" aria-label="+">+</button>`}</div>
+      <div style="text-align:end"><button class="btn small danger" data-act="rmLine" data-i="${i}">✕</button></div>
+    </div>`).join("");
+  if (S.weighPending) {
+    const p = S.products.get(S.weighPending);
+    lines += `<div class="panel" style="margin-top:8px;background:var(--accent-soft)">
+      <div style="font-weight:600;margin-bottom:6px">${esc(p ? pname(p) : "")}: ${esc(t("enterPrice"))}</div>
+      <div class="row"><input type="number" inputmode="decimal" id="weighPrice" style="flex:1" min="0" step="any">
+      <select id="weighCur" style="width:auto"><option value="lbp">LBP</option><option value="usd">$</option></select>
+      <button class="btn primary" data-act="weighAdd">${esc(t("add"))}</button><button class="btn" data-act="weighCancel">${esc(t("cancel"))}</button></div></div>`;
+  }
+  const paidUsd = num(S.pay.usd) + num(S.pay.lbp) / S.settings.rate;
+  const changeUsd = paidUsd - tot;
+  const custs = [...S.customers.values()].sort((a, b) => a.name.localeCompare(b.name));
+  let payBlock = "";
+  if (S.cart.length) {
+    payBlock = `<div class="row" style="margin:10px 0"><div class="seg">
+        <button data-act="method" data-m="cash" aria-pressed="${S.pay.method === "cash"}">${esc(t("cash"))}</button>
+        <button data-act="method" data-m="credit" aria-pressed="${S.pay.method === "credit"}">${esc(t("credit"))}</button></div></div>`;
+    if (S.pay.method === "cash") {
+      payBlock += `<div class="grid-form" style="grid-template-columns:1fr 1fr">
+        <label class="f">${esc(t("paidUsd"))}<input type="number" id="payUsd" inputmode="decimal" min="0" step="any" data-in="pay.usd"></label>
+        <label class="f">${esc(t("paidLbp"))}<input type="number" id="payLbp" inputmode="numeric" min="0" step="1000" data-in="pay.lbp"></label></div>
+        ${paidUsd > 0 ? `<div class="change" style="margin-top:8px">${changeUsd >= -0.004 ? `${esc(t("change"))}: ${usd(changeUsd)} = ${lbp(toLbp(changeUsd))}` : `<span style="color:var(--bad)">${esc(t("short"))}: ${usd(-changeUsd)} = ${lbp(toLbp(-changeUsd))}</span>`}</div>` : ""}`;
+    } else {
+      const c = S.customers.get(S.pay.customer);
+      const over = c && num(c.limit) > 0 && balanceOf(c) + tot > num(c.limit);
+      payBlock += `<label class="f">${esc(t("pickCustomer"))}<select id="payCustomer" data-in="pay.customer"><option value="">—</option>${custs.map((c) => `<option value="${esc(c.id)}" ${S.pay.customer === c.id ? "selected" : ""}>${esc(c.name)}${isStaff(c) ? " · " + esc(t("employee")) : ""} (${usd(balanceOf(c))})</option>`).join("")}</select></label>
+        ${over ? `<p class="banner bad" style="margin-top:8px">${esc(t("overLimit"))}: ${usd(balanceOf(c) + tot)} / ${usd(c.limit)}</p>` : ""}`;
+    }
+  }
+  const canFinish = S.cart.length && S.canWrite && !S.busy && (S.pay.method === "credit" ? !!S.pay.customer : (paidUsd === 0 || changeUsd >= -0.004));
+  return `<h3>${esc(t("basket"))}</h3>
+    ${S.cart.length || S.weighPending ? `<div class="lines">${lines}</div>` : `<p class="muted">${esc(t("emptyBasket"))}</p>`}
+    <div class="total"><span>${esc(t("total"))}</span><b>${usd(tot)}</b></div>
+    <div class="row" style="justify-content:space-between"><span class="lbp">${lbp(toLbp(tot))}</span><span class="muted" style="font-size:12px">${esc(t("vatIncl"))} ${S.settings.vat}%: ${usd(vatAmt)}</span></div>
+    ${payBlock}
+    <div class="row" style="margin-top:12px"><button class="btn primary" style="flex:1;padding:12px" data-act="finish" ${canFinish ? "" : "disabled"}>${esc(t("finish"))}</button>
+    <button class="btn" data-act="clearCart" ${S.cart.length ? "" : "disabled"}>${esc(t("clear"))}</button></div>`;
+}
+function receiptView() {
+  const r = S.lastReceipt; const vatAmt = r.total * r.vat / (100 + r.vat);
+  const c = r.customerId && S.customers.get(r.customerId);
+  const txt = [t("brand"), `${r.day} ${timeStr(r.at)}  #${r.no}`, "------------------------------",
+    ...r.items.map((l) => `${l.name}\n  ${l.weighed ? "" : l.qty + " × " + usd(l.price)}${" ".repeat(4)}${usd(l.qty * l.price)}`),
+    "------------------------------", `${t("total")}: ${usd(r.total)}`, `${lbp(r.total * r.rate)}`, `${t("vatIncl")} ${r.vat}%: ${usd(vatAmt)}`,
+    r.method === "credit" ? `${t("credit")}: ${c ? c.name : ""}` : `${t("cash")}: ${usd(r.paidUsd)} + ${lbp(r.paidLbp)}`,
+    r.method === "cash" && r.changeUsd > 0 ? `${t("change")}: ${usd(r.changeUsd)} = ${lbp(r.changeUsd * r.rate)}` : ""].filter(Boolean).join("\n");
+  return `<h3>${esc(t("receipt"))}</h3><div class="receipt-paper">${esc(txt)}</div>
+    <button class="btn primary" style="width:100%;margin-top:12px;padding:12px" data-act="newSale">${esc(t("newSale"))}</button>`;
+}
+
+// Products & stock
+VIEWS.stock = () => {
+  const prods = [...S.products.values()].sort((a, b) => pname(a).localeCompare(pname(b)));
+  const re = prods.filter(isReorder);
+  const q = S.stockQ.trim().toLowerCase();
+  const list = prods.filter((p) => !q || (p.name || "").toLowerCase().includes(q) || (p.nameAr || "").includes(S.stockQ.trim()) || (p.barcode || "").includes(q));
+  const hasEx = prods.some((p) => p.example);
+  const rowOf = (p) => {
+    const tot = totalOf(p);
+    const st = p.weighed ? `<span class="pill ex">${esc(t("weighedTag"))}</span>` : tot <= 0 ? `<span class="pill bad">${esc(t("out"))}</span>` : isReorder(p) ? `<span class="pill warn">${esc(t("reorderNow"))}</span>` : `<span class="pill ok">${esc(t("ok"))}</span>`;
+    const sp = supOf(p);
+    return `<tr class="clickrow" data-row="${esc(p.id)}"><td class="wrapc"><button class="linkbtn" data-act="productInfo" data-id="${esc(p.id)}">${esc(pname(p))}</button>${p.example ? ` <span class="pill ex">${esc(t("example"))}</span>` : ""}<div class="muted mono" style="font-size:12px">${esc([p.barcode, p.category && catLabel(p.category)].filter(Boolean).join(" · "))}</div>${sp ? `<div class="muted" style="font-size:12px">${esc(t("supplier"))}: ${esc(sp.name)}</div>` : ""}</td>
+      <td class="n">${p.weighed ? "—" : usd(p.price)}</td><td class="n">${p.weighed ? "—" : tot}</td><td class="n">${p.weighed ? "—" : num(p.reorder)}</td><td>${st}</td>
+      <td><div class="row" style="flex-wrap:nowrap">${p.weighed ? "" : `<button class="btn small" data-act="openReceive" data-id="${esc(p.id)}">${esc(t("receive"))}</button><button class="btn small" data-act="openCount" data-id="${esc(p.id)}">${esc(t("count"))}</button>`}<button class="btn small" data-act="openProduct" data-id="${esc(p.id)}">✎</button></div></td></tr>`;
+  };
+  const secs = sectionsOf(prods);
+  const shown = S.stockSec === "all" ? secs : secs.filter((x) => x.key === S.stockSec);
+  const head = `<thead><tr><th>${esc(t("item"))}</th><th class="n">${esc(t("price"))}</th><th class="n">${esc(t("total_pcs"))}</th><th class="n">${esc(t("reorder"))}</th><th>${esc(t("status"))}</th><th></th></tr></thead>`;
+  const tables = shown.map((x) => {
+    const items = list.filter((p) => sectionKey(p) === x.key); if (!items.length && q) return "";
+    let body;
+    if (x.key === "shelf" && items.length) {
+      const groups = shelfGroups(items);
+      const visible = S.stockSec === "shelf" && S.shelfCat !== "all" ? groups.filter((g) => g.key === S.shelfCat) : groups;
+      const sub = S.stockSec === "shelf" ? `<div class="row" style="gap:6px">${[{ key: "all", label: t("secAll"), items }, ...groups].map((g) => `<button class="btn small" data-act="shelfCat" data-v="${esc(g.key)}" ${S.shelfCat === g.key ? 'style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent)"' : ""}>${esc(g.label)} <span class="mono" style="opacity:.7">${g.items.length}</span></button>`).join("")}</div>` : "";
+      body = sub + visible.map((g) => `<div class="stack" style="gap:6px"><div class="row"><h4 style="margin:4px 0 0;font-size:14px"><span class="cat-h" ${tintStyle(g.key)}>${esc(g.label)} <span class="muted" style="font-weight:500">(${g.items.length})</span></span></h4><span class="spacer"></span><button class="btn small" data-act="openProduct" data-sec="shelf" data-cat="${esc(g.key)}">+</button></div>
+        <div class="tbl"><table>${head}<tbody>${g.items.map(rowOf).join("")}</tbody></table></div></div>`).join("");
+    } else body = items.length ? `<div class="tbl"><table>${head}<tbody>${items.map(rowOf).join("")}</tbody></table></div>` : `<div class="panel empty">—</div>`;
+    return `<section class="stack" style="gap:8px"><div class="row"><h3 style="margin:0"><span class="cat-h" ${x.key === "shelf" ? 'style="--tint:var(--t-green);--ink:var(--i-green)"' : tintStyle(x.key)}>${esc(x.label)} <span class="muted" style="font-weight:500">(${items.length})</span></span></h3><span class="spacer"></span>
+      <button class="btn small" data-act="openProduct" data-sec="${esc(x.key)}">+ ${esc(t("addProduct"))}</button></div>
+      ${body}</section>`;
+  }).join("");
+  const chips = `<div class="row"><div class="seg" style="flex-wrap:wrap">${[{ key: "all", label: t("secAll"), n: prods.length }, ...secs].map((x) => `<button data-act="stockSec" data-v="${esc(x.key)}" aria-pressed="${S.stockSec === x.key}">${esc(x.label)} <span class="mono" style="opacity:.7">${x.n}</span></button>`).join("")}</div></div>`;
+  return `<div class="stack">
+    <div class="row"><div><h2>${esc(t("tab_stock"))}</h2></div><span class="spacer"></span>
+      ${hasEx ? `<button class="btn" data-act="removeExamples">${esc(t("removeExamples"))}</button>` : ""}
+      <button class="btn primary" data-act="openProduct">${esc(t("addProduct"))}</button></div>
+    <div class="panel"><h3>${esc(t("reorderList"))} ${re.length ? `<span class="pill warn">${re.length}</span>` : ""}</h3><p class="sub" style="margin-bottom:8px">${esc(t("reorderSub"))}</p>
+      ${re.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("item"))}</th><th class="n">${esc(t("total_pcs"))}</th><th class="n">${esc(t("reorder"))}</th><th class="n">${esc(t("boxSize"))}</th><th>${esc(t("supplier"))}</th></tr></thead><tbody>
+        ${re.map((p) => { const sp = supOf(p); return `<tr><td><button class="linkbtn" data-act="productInfo" data-id="${esc(p.id)}">${esc(pname(p))}</button></td><td class="n">${totalOf(p)}</td><td class="n">${num(p.reorder)}</td><td class="n">${boxSize(p)}</td><td>${sp ? `${esc(sp.name)} ${telLink(sp.phone)}` : `<span class="muted">—</span>`}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">${esc(t("allGood"))}</p>`}
+    </div>
+    ${chips}
+    <input type="search" id="stockSearch" placeholder="${esc(t("searchProducts"))}" data-in="stockQ">
+    ${prods.length ? tables : `<div class="panel empty">${esc(t("noProducts"))}</div>`}
+  </div>`;
+};
+
+// Suppliers
+VIEWS.suppliers = () => {
+  const sups = [...S.suppliers.values()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const prods = [...S.products.values()];
+  const cards = sups.map((sp) => {
+    const mine = prods.filter((p) => p.supplierId === sp.id);
+    const low = mine.filter(isReorder).length;
+    return `<div class="panel stack" style="gap:8px">
+      <div class="row"><b style="font-size:16px">${esc(sp.name)}</b>${low ? `<span class="pill warn">${low} ${esc(t("reorderNow"))}</span>` : ""}<span class="spacer"></span><button class="btn small" data-act="openSupplier" data-id="${esc(sp.id)}">✎</button></div>
+      <div class="muted">${sp.independent ? esc(t("independent")) : esc(sp.company || t("forCompany"))}</div>
+      <div class="row">${telLink(sp.phone)}${sp.phone2 ? " · " + telLink(sp.phone2) : ""}</div>
+      ${sp.visits ? `<div><span class="muted">${esc(t("visits"))}:</span> ${esc(sp.visits)}</div>` : ""}
+      ${sp.address ? `<div><span class="muted">${esc(t("address"))}:</span> ${esc(sp.address)}</div>` : ""}
+      ${sp.notes ? `<div class="muted" style="white-space:pre-wrap">${esc(sp.notes)}</div>` : ""}
+      <div><span class="muted">${esc(t("supplies"))} (${mine.length}):</span> ${mine.map((p) => `<button class="linkbtn" data-act="productInfo" data-id="${esc(p.id)}">${esc(pname(p))}</button>`).join(", ") || "—"}</div>
+    </div>`;
+  }).join("");
+  return `<div class="stack"><div class="row"><div><h2>${esc(t("tab_suppliers"))}</h2><p class="sub" style="margin:0">${esc(t("supSub"))}</p></div><span class="spacer"></span>
+      <button class="btn primary" data-act="openSupplier">${esc(t("addSupplier"))}</button></div>
+    ${sups.length ? `<div class="sup-grid">${cards}</div>` : `<div class="panel empty">${esc(t("noSuppliers"))}</div>`}</div>`;
+};
+
+// Opened boxes
+VIEWS.boxes = () => {
+  const prods = [...S.products.values()].filter((p) => !p.weighed && boxSize(p) > 1).sort((a, b) => pname(a).localeCompare(pname(b)));
+  const ref = prods.filter(needsRefill);
+  const rows = prods.map((p) => `<tr><td><b>${esc(pname(p))}</b>${needsRefill(p) ? ` <span class="pill warn">${esc(t("refill"))}</span>` : ""}</td>
+      <td class="n">${boxSize(p)}</td><td class="n">${num(p.shelf)}</td><td class="n">${num(p.openBox)}</td><td class="n">${num(p.closed)}</td><td class="n"><b>${totalOf(p)}</b></td>
+      <td><div class="row" style="flex-wrap:nowrap"><button class="btn small" data-act="openBoxNow" data-id="${esc(p.id)}" ${num(p.closed) > 0 && S.canWrite ? "" : "disabled"}>${esc(t("openABox"))}</button>
+      <input type="number" id="mv-${esc(p.id)}" min="1" step="1" placeholder="${num(p.openBox) || ""}" style="width:70px"><button class="btn small" data-act="toShelf" data-id="${esc(p.id)}" ${num(p.openBox) > 0 && S.canWrite ? "" : "disabled"}>${esc(t("toShelf"))}</button></div></td></tr>`).join("");
+  return `<div class="stack"><div><h2>${esc(t("tab_boxes"))}</h2><p class="sub">${esc(t("boxesSub"))}</p></div>
+    <div class="panel"><h3>${esc(t("refill"))} ${ref.length ? `<span class="pill warn">${ref.length}</span>` : ""}</h3><p class="sub" style="margin-bottom:8px">${esc(t("refillSub"))}</p>
+    ${ref.length ? `<div class="lines">${ref.map((p) => `<div class="row"><b>${esc(pname(p))}</b><span class="muted mono">${esc(t("shelf"))} ${num(p.shelf)} · ${esc(t("openBox"))} ${num(p.openBox)} · ${esc(t("closed"))} ${num(p.closed)}</span></div>`).join("")}</div>` : `<p class="muted">${esc(t("nothingRefill"))}</p>`}</div>
+    ${prods.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("item"))}</th><th class="n">${esc(t("boxSize"))}</th><th class="n">${esc(t("shelf"))}</th><th class="n">${esc(t("openBox"))}</th><th class="n">${esc(t("closed"))}</th><th class="n">${esc(t("total_pcs"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : `<div class="panel empty">${esc(t("noBoxItems"))}</div>`}</div>`;
+};
+
+// Debts: customers and employees
+VIEWS.customers = () => {
+  const today = dateKey(); const staffTab = S.debtTab === "staff";
+  const all = [...S.customers.values()];
+  const owed = (list) => list.reduce((s, c) => s + Math.max(0, balanceOf(c)), 0);
+  const custList = all.filter((c) => !isStaff(c)), staffList = all.filter(isStaff);
+  const cs = (staffTab ? staffList : custList).map((c) => ({ c, bal: balanceOf(c), since: unpaidSince(c) }))
+    .sort((a, b) => (b.since ? daysBetween(b.since, today) : -1) - (a.since ? daysBetween(a.since, today) : -1) || b.bal - a.bal);
+  const rows = cs.map(({ c, bal, since }) => {
+    const d = since ? daysBetween(since, today) : 0; const late = isLate(c);
+    return `<tr><td><b>${esc(c.name)}</b><div class="muted mono" style="font-size:12px">${esc([c.role, c.phone].filter(Boolean).join(" · "))}</div></td>
+      <td class="n" style="${late ? "color:var(--bad);font-weight:700" : ""}">${usd(bal)}</td>
+      <td>${since ? `${esc(since)} <span class="pill ${late ? "bad" : "ex"}">${d} ${esc(t("days"))}${late ? " · " + esc(t("late")) : ""}</span>` : "—"}</td>
+      ${staffTab ? "" : `<td class="n">${num(c.limit) ? usd(c.limit) : "—"}</td>`}
+      <td><div class="row" style="flex-wrap:nowrap"><button class="btn small" data-act="openAddDebt" data-id="${esc(c.id)}">${esc(t("addDebt"))}</button>
+      <button class="btn small" data-act="openCustomerPay" data-id="${esc(c.id)}" ${bal > 0 ? "" : "disabled"}>${esc(t("recordPay"))}</button>
+      <button class="btn small" data-act="openCustomer" data-id="${esc(c.id)}">${esc(t("history"))}</button>
+      ${bal > 0 && !staffTab ? `<button class="btn small" data-act="copyReminder" data-id="${esc(c.id)}">${esc(t("copyReminder"))}</button>` : ""}</div></td></tr>`;
+  }).join("");
+  const lateN = custList.filter(isLate).length;
+  return `<div class="stack"><div class="row"><div><h2>${esc(t("tab_customers"))}</h2><p class="sub" style="margin:0">${esc(staffTab ? t("staffSub") : t("custSub"))}</p></div><span class="spacer"></span>
+      <button class="btn primary" data-act="openNewCustomer" data-kind="${staffTab ? "staff" : "customer"}">${esc(staffTab ? t("addStaff") : t("addCustomer"))}</button></div>
+    <div class="row"><div class="seg"><button data-act="debtTab" data-v="customers" aria-pressed="${!staffTab}">${esc(t("debtCust"))} <span class="mono" style="opacity:.7">${usd(owed(custList))}</span>${lateN ? ` <span class="dot" style="display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px">${lateN}</span>` : ""}</button>
+      <button data-act="debtTab" data-v="staff" aria-pressed="${staffTab}">${esc(t("debtStaff"))} <span class="mono" style="opacity:.7">${usd(owed(staffList))}</span></button></div></div>
+    <div class="kpis"><div class="kpi"><span>${esc(staffTab ? t("totalStaff") : t("totalOwed"))}</span><b>${usd(owed(staffTab ? staffList : custList))}</b><em>${lbp(toLbp(owed(staffTab ? staffList : custList)))}</em></div></div>
+    ${cs.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("supName"))}</th><th class="n">${esc(t("owes"))}</th><th>${esc(t("since"))}</th>${staffTab ? "" : `<th class="n">${esc(t("limit"))}</th>`}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : `<div class="panel empty">${esc(staffTab ? t("noStaff") : t("noCustomers"))}</div>`}</div>`;
+};
+
+// Payments
+VIEWS.payments = () => {
+  const today = dateKey(); const in7 = addDays(today, 7); const in30 = addDays(today, 30);
+  const all = [...S.payments.values()];
+  const up = all.filter((p) => !p.paidAt).sort((a, b) => (a.due || "9").localeCompare(b.due || "9"));
+  const done = all.filter((p) => p.paidAt).sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  const inUsd = (p) => p.currency === "LBP" ? num(p.amount) / S.settings.rate : num(p.amount);
+  const sumTo = (d) => up.filter((p) => p.due && p.due <= d).reduce((s, p) => s + inUsd(p), 0);
+  const amt = (p) => p.currency === "LBP" ? lbp(p.amount) : usd(p.amount);
+  const mlabel = { till: t("fromTill"), owner: t("fromOwner"), transfer: t("transfer") };
+  const upRows = up.map((p) => { const od = p.due && p.due < today;
+    return `<tr><td><b>${esc(p.to)}</b><div class="muted">${esc(p.what || "")}</div></td><td class="n">${amt(p)}</td>
+      <td>${esc(p.due || "—")} ${od ? `<span class="pill bad">${esc(t("overdue"))}</span>` : p.due && p.due <= in7 ? `<span class="pill warn">${daysBetween(today, p.due)} ${esc(t("days"))}</span>` : ""}</td>
+      <td><div class="row" style="flex-wrap:nowrap"><select id="pm-${esc(p.id)}" style="width:auto"><option value="till">${esc(t("fromTill"))}</option><option value="owner">${esc(t("fromOwner"))}</option><option value="transfer">${esc(t("transfer"))}</option></select>
+      <button class="btn small primary" data-act="markPaid" data-id="${esc(p.id)}">${esc(t("markPaid"))}</button><button class="btn small" data-act="openPayment" data-id="${esc(p.id)}">✎</button></div></td></tr>`; }).join("");
+  const doneRows = done.map((p) => `<tr><td><b>${esc(p.to)}</b><div class="muted">${esc(p.what || "")}</div></td><td class="n">${amt(p)}</td><td>${esc(p.paidAt.slice(0, 10))}</td><td>${esc(mlabel[p.method] || "")}</td></tr>`).join("");
+  return `<div class="stack"><div class="row"><div><h2>${esc(t("tab_payments"))}</h2><p class="sub" style="margin:0">${esc(t("paySub"))}</p></div><span class="spacer"></span>
+      <button class="btn primary" data-act="openPayment">${esc(t("addPay"))}</button></div>
+    <div class="kpis"><div class="kpi"><span>${esc(t("dueWeek"))}</span><b>${usd(sumTo(in7))}</b><em>${lbp(toLbp(sumTo(in7)))}</em></div>
+      <div class="kpi"><span>${esc(t("dueMonth"))}</span><b>${usd(sumTo(in30))}</b><em>${lbp(toLbp(sumTo(in30)))}</em></div></div>
+    <div class="row"><div class="seg"><button data-act="payTab" data-v="upcoming" aria-pressed="${S.payTab === "upcoming"}">${esc(t("upcoming"))} (${up.length})</button><button data-act="payTab" data-v="paid" aria-pressed="${S.payTab === "paid"}">${esc(t("paid"))} (${done.length})</button></div></div>
+    ${S.payTab === "upcoming"
+      ? (up.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("to"))}</th><th class="n">${esc(t("amount"))}</th><th>${esc(t("due"))}</th><th></th></tr></thead><tbody>${upRows}</tbody></table></div>` : `<div class="panel empty">${esc(t("noUpcoming"))}</div>`)
+      : (done.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("to"))}</th><th class="n">${esc(t("amount"))}</th><th>${esc(t("paidOn"))}</th><th>${esc(t("method"))}</th></tr></thead><tbody>${doneRows}</tbody></table></div>` : `<div class="panel empty">${esc(t("noPaid"))}</div>`)}
+  </div>`;
+};
+
+// Today
+function daySummary(key) {
+  const rs = [];
+  for (const d of S.days.values()) if (d.date === key) rs.push(...(Array.isArray(d.receipts) ? d.receipts : Object.values(d.receipts || {})));
+  rs.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const sales = rs.reduce((s, r) => s + num(r.total), 0);
+  const credit = rs.filter((r) => r.method === "credit").reduce((s, r) => s + num(r.total), 0);
+  return { rs, sales, credit, cash: sales - credit, n: rs.length, avg: rs.length ? sales / rs.length : 0 };
+}
+VIEWS.today = () => {
+  const today = dateKey(); const td = daySummary(today); const lw = daySummary(addDays(today, -7));
+  const prods = [...S.products.values()];
+  const top = new Map();
+  td.rs.forEach((r) => r.items.forEach((l) => { const k = l.pid; const x = top.get(k) || { name: l.name, qty: 0, amt: 0 }; x.qty += l.weighed ? 0 : l.qty; x.amt += l.qty * l.price; top.set(k, x); }));
+  const topList = [...top.values()].sort((a, b) => b.amt - a.amt).slice(0, 8);
+  const late = [...S.customers.values()].filter(isLate).length;
+  const dueW = [...S.payments.values()].filter((p) => !p.paidAt && p.due && p.due <= addDays(today, 7)).length;
+  const alerts = [[prods.filter(isReorder).length, t("a_reorder"), "stock"], [prods.filter(needsRefill).length, t("a_refill"), "boxes"], [late, t("a_late"), "customers"], [dueW, t("a_due"), "payments"]].filter((a) => a[0] > 0);
+  const cmp = (a, b) => b ? `${t("lastWeek")}: ${usd(b)}` : "";
+  const week = Array.from({ length: 7 }, (_, i) => addDays(today, -6 + i)).map((k) => ({ k, ...daySummary(k) }));
+  const max = Math.max(1, ...week.map((w) => w.sales));
+  const bars = week.map((w, i) => { const h = Math.round((w.sales / max) * 100); const x = 20 + i * 48;
+    return `<g><rect x="${x}" y="${120 - h}" width="30" height="${Math.max(h, 1)}" rx="3" fill="${w.k === today ? "var(--accent)" : "var(--line)"}"></rect>
+      <text x="${x + 15}" y="${114 - h}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${w.sales ? Math.round(w.sales) : ""}</text>
+      <text x="${x + 15}" y="136" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${w.k.slice(5)}</text></g>`; }).join("");
+  return `<div class="stack"><div><h2>${esc(t("tab_today"))}</h2><p class="sub">${esc(today)}</p></div>
+    <div class="kpis">
+      <div class="kpi"><span>${esc(t("sales"))}</span><b>${usd(td.sales)}</b><em>${esc(cmp(td.sales, lw.sales))}</em></div>
+      <div class="kpi"><span>${esc(t("receipts"))}</span><b>${td.n}</b><em>${lw.n ? esc(t("lastWeek")) + ": " + lw.n : ""}</em></div>
+      <div class="kpi"><span>${esc(t("avgBasket"))}</span><b>${usd(td.avg)}</b><em>${esc(cmp(td.avg, lw.avg))}</em></div>
+      <div class="kpi"><span>${esc(t("creditSales"))}</span><b>${usd(td.credit)}</b><em>${esc(t("cashTaken"))}: ${usd(td.cash)}</em></div>
+    </div>
+    ${alerts.length ? `<div class="panel"><h3>${esc(t("alerts"))}</h3><div class="row">${alerts.map((a) => `<button class="btn" data-act="tab" data-tab="${a[2]}"><span class="pill warn">${a[0]}</span> ${esc(a[1])}</button>`).join("")}</div></div>` : ""}
+    <div class="panel"><h3>${esc(t("last7"))} ($)</h3><div style="overflow-x:auto"><svg viewBox="0 0 356 142" width="100%" style="max-width:520px" role="img" aria-label="${esc(t("last7"))}">${bars}</svg></div></div>
+    <div class="panel"><h3>${esc(t("topItems"))}</h3>${topList.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("item"))}</th><th class="n">${esc(t("qty"))}</th><th class="n">${esc(t("sales"))}</th></tr></thead><tbody>
+      ${topList.map((x) => `<tr><td>${esc(x.name)}</td><td class="n">${x.qty || "—"}</td><td class="n">${usd(x.amt)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">${esc(t("noSales"))}</p>`}</div>
+  </div>`;
+};
+
+VIEWS.settings = () => `<div class="stack" style="max-width:560px"><div><h2>${esc(t("tab_settings"))}</h2><p class="sub">${esc(t("settingsSub"))}</p></div>
+  <div class="panel stack"><label class="f">${esc(t("rateLbp"))}<input type="number" id="setRate" value="${S.settings.rate}" min="1" step="100"></label>
+  <label class="f">${esc(t("vat"))}<input type="number" id="setVat" value="${S.settings.vat}" min="0" step="0.5"></label>
+  <label class="f">${esc(t("shelfMin"))}<input type="number" id="setShelf" value="${S.settings.shelfMin}" min="0" step="1"></label>
+  <div><button class="btn primary" data-act="saveSettings" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button></div></div></div>`;
+
+// ---------- drawers ----------
+let delArmed = null;
+function drawer(title, body) {
+  $("#overlay").innerHTML = `<div class="drawer-bg" data-act="closeDrawer"></div><div class="drawer" role="dialog" aria-label="${esc(title)}"><div class="head"><h3 style="margin:0">${esc(title)}</h3><button class="btn small" data-act="closeDrawer" aria-label="${esc(t("cancel"))}">✕</button></div>${body}</div>`;
+  const first = $("#overlay input, #overlay select"); if (first) first.focus();
+}
+function closeDrawer() { $("#overlay").innerHTML = ""; delArmed = null; }
+
+function productDrawer(id, sec, cat) {
+  const p = id ? S.products.get(id) : (sec && sec !== "shelf" && sec !== "all" && sec !== "other" ? { weighed: true, category: sec } : { category: cat || "" });
+  drawer(id ? t("editProduct") : t("addProduct"), `<form id="productForm" class="stack" data-id="${esc(id || "")}">
+    <div class="grid-form">
+      <label class="f">${esc(t("nameAr"))}<input type="text" id="pf-nameAr" dir="rtl" value="${esc(p.nameAr || "")}"></label>
+      <label class="f">${esc(t("name"))}<input type="text" id="pf-name" dir="ltr" value="${esc(p.name || "")}"></label>
+      <label class="f">${esc(t("barcode"))}<input type="text" id="pf-barcode" inputmode="numeric" value="${esc(p.barcode || "")}"></label>
+      <label class="f">${esc(t("category"))}<input type="text" id="pf-category" list="catList" value="${esc(p.category || "")}"><datalist id="catList">${[...new Set([...SHELF_CATS, ...WEIGH_CATS, ...[...S.products.values()].map((x) => x.category).filter(Boolean)])].map((c) => `<option value="${esc(c)}"></option>`).join("")}</datalist></label>
+      <label class="f">${esc(t("price"))}<input type="number" id="pf-price" step="any" min="0" value="${esc(p.price ?? "")}"></label>
+      <label class="f">${esc(t("cost"))}<input type="number" id="pf-cost" step="any" min="0" value="${esc(p.cost ?? "")}"></label>
+      <label class="f">${esc(t("boxSize"))}<input type="number" id="pf-boxSize" step="1" min="1" value="${esc(p.boxSize ?? 1)}"></label>
+      <label class="f">${esc(t("reorder"))}<input type="number" id="pf-reorder" step="1" min="0" value="${esc(p.reorder ?? 0)}"></label>
+      <label class="f">${esc(t("supplier"))}<select id="pf-supplier"><option value="">—</option>${[...S.suppliers.values()].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((sp) => `<option value="${esc(sp.id)}" ${p.supplierId === sp.id ? "selected" : ""}>${esc(sp.name)}${sp.company && !sp.independent ? " · " + esc(sp.company) : ""}</option>`).join("")}</select></label>
+    </div>
+    <label class="f chk"><input type="checkbox" id="pf-weighed" ${p.weighed ? "checked" : ""}> ${esc(t("weighed"))}</label>
+    <div class="row"><button class="btn primary" type="submit" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button>
+    <span class="spacer"></span>${id ? `<button class="btn danger" type="button" data-act="delProduct" data-id="${esc(id)}">${esc(t("del"))}</button>` : ""}</div></form>`);
+}
+function productInfoDrawer(id) {
+  const p = S.products.get(id); if (!p) return; const sp = supOf(p);
+  const supBlock = sp ? `<div class="panel stack" style="gap:8px;background:var(--sunken)">
+      <div class="muted" style="font-size:12px;font-weight:600">${esc(t("supplier"))}</div>
+      <b style="font-size:17px">${esc(sp.name)}</b>
+      <div>${sp.independent ? esc(t("independent")) : `${esc(t("forCompany"))}: <b>${esc(sp.company || "—")}</b>`}</div>
+      <div class="row">${esc(t("phone"))}: ${telLink(sp.phone) || "—"} ${sp.phone ? `<button class="btn small" data-act="copyText" data-text="${esc(sp.phone)}">${esc(t("copyPhone"))}</button>` : ""}</div>
+      ${sp.phone2 ? `<div>${esc(t("phone2"))}: ${telLink(sp.phone2)}</div>` : ""}
+      ${sp.visits ? `<div>${esc(t("visits"))}: ${esc(sp.visits)}</div>` : ""}
+      ${sp.address ? `<div>${esc(t("address"))}: ${esc(sp.address)}</div>` : ""}
+      ${sp.notes ? `<div class="muted" style="white-space:pre-wrap">${esc(sp.notes)}</div>` : ""}
+      <div class="row"><button class="btn small" data-act="openSupplier" data-id="${esc(sp.id)}">${esc(t("editSupplier"))}</button><button class="btn small" data-act="unlinkSupplier" data-id="${esc(p.id)}">${esc(t("changeSup"))}</button></div></div>`
+    : supplierPicker(p);
+  drawer(pname(p), `<div class="stack">
+    <div class="muted mono">${esc([p.barcode, p.category && catLabel(p.category)].filter(Boolean).join(" · "))}</div>
+    ${p.weighed ? `<span class="pill ex">${esc(t("weighedTag"))}</span>` : `<div class="kpis" style="grid-template-columns:repeat(2,1fr)">
+      <div class="kpi"><span>${esc(t("price"))}</span><b>${usd(p.price)}</b><em>${esc(t("cost"))}: ${usd(p.cost)}</em></div>
+      <div class="kpi"><span>${esc(t("total_pcs"))}</span><b>${totalOf(p)}</b><em>${esc(t("shelf"))} ${num(p.shelf)} · ${esc(t("openBox"))} ${num(p.openBox)} · ${esc(t("closed"))} ${num(p.closed)}</em></div></div>`}
+    ${supBlock}
+    <div class="row">${p.weighed ? "" : `<button class="btn" data-act="openReceive" data-id="${esc(id)}">${esc(t("receive"))}</button>`}<button class="btn" data-act="openProduct" data-id="${esc(id)}">${esc(t("editProduct"))}</button></div></div>`);
+}
+function supplierPicker(p) {
+  const sups = [...S.suppliers.values()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  return `<div class="panel stack" style="gap:10px;background:var(--sunken)">
+    <div class="muted" style="font-size:12px;font-weight:600">${esc(t("supplier"))}: ${esc(t("noSupplier"))}</div>
+    ${sups.length ? `<label class="f">${esc(t("pickSupplier"))}<div class="row" style="flex-wrap:nowrap"><select id="pi-sup">${sups.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}${x.company && !x.independent ? " · " + esc(x.company) : ""}</option>`).join("")}</select>
+      <button class="btn primary" type="button" data-act="linkSupplier" data-id="${esc(p.id)}">${esc(t("link"))}</button></div></label>` : ""}
+    <form id="quickSupForm" class="stack" style="gap:8px" data-id="${esc(p.id)}"><div class="muted" style="font-size:13px;font-weight:600">${esc(sups.length ? t("orNew") : t("addSupplier"))}</div>
+      <div class="grid-form"><label class="f">${esc(t("supName"))}<input type="text" id="qs-name" required></label>
+      <label class="f">${esc(t("phone"))}<input type="tel" id="qs-phone"></label>
+      <label class="f">${esc(t("works"))}<select id="qs-type"><option value="company">${esc(t("forCompany"))}</option><option value="alone">${esc(t("independent"))}</option></select></label>
+      <label class="f">${esc(t("company"))}<input type="text" id="qs-company"></label></div>
+      <div><button class="btn primary" type="submit" ${S.canWrite ? "" : "disabled"}>${esc(t("saveLink"))}</button></div></form></div>`;
+}
+function supplierDrawer(id) {
+  const sp = id ? S.suppliers.get(id) : { independent: false };
+  drawer(id ? t("editSupplier") : t("addSupplier"), `<form id="supplierForm" class="stack" data-id="${esc(id || "")}"><div class="grid-form">
+    <label class="f">${esc(t("supName"))}<input type="text" id="su-name" required value="${esc(sp.name || "")}"></label>
+    <label class="f">${esc(t("phone"))}<input type="tel" id="su-phone" value="${esc(sp.phone || "")}"></label>
+    <label class="f">${esc(t("phone2"))}<input type="tel" id="su-phone2" value="${esc(sp.phone2 || "")}"></label>
+    <label class="f">${esc(t("works"))}<select id="su-type"><option value="company" ${sp.independent ? "" : "selected"}>${esc(t("forCompany"))}</option><option value="alone" ${sp.independent ? "selected" : ""}>${esc(t("independent"))}</option></select></label>
+    <label class="f">${esc(t("company"))}<input type="text" id="su-company" value="${esc(sp.company || "")}"></label>
+    <label class="f">${esc(t("visits"))}<input type="text" id="su-visits" value="${esc(sp.visits || "")}"></label>
+    <label class="f">${esc(t("address"))}<input type="text" id="su-address" value="${esc(sp.address || "")}"></label></div>
+    <label class="f">${esc(t("notes"))}<textarea id="su-notes" rows="3" style="border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:8px 10px;width:100%">${esc(sp.notes || "")}</textarea></label>
+    <div class="row"><button class="btn primary" type="submit" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button>
+    <span class="spacer"></span>${id ? `<button class="btn danger" type="button" data-act="delSupplier" data-id="${esc(id)}">${esc(t("del"))}</button>` : ""}</div></form>`);
+}
+function receiveDrawer(id) {
+  const p = S.products.get(id);
+  drawer(`${t("receive")}: ${pname(p)}`, `<form id="receiveForm" class="stack" data-id="${esc(id)}"><div class="grid-form">
+    <label class="f">${esc(t("boxes"))} (×${boxSize(p)})<input type="number" id="rf-boxes" min="0" step="1" value="0"></label>
+    <label class="f">${esc(t("pieces"))}<input type="number" id="rf-pieces" min="0" step="1" value="0"></label>
+    <label class="f">${esc(t("toWhere"))}<select id="rf-where"><option value="shelf">${esc(t("shelf"))}</option><option value="openBox">${esc(t("openBox"))}</option></select></label>
+    <label class="f">${esc(t("newCost"))}<input type="number" id="rf-cost" min="0" step="any" placeholder="${esc(p.cost ?? "")}"></label></div>
+    <p class="muted mono">${esc(t("total_pcs"))}: ${totalOf(p)}</p>
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
+}
+function countDrawer(id) {
+  const p = S.products.get(id);
+  drawer(`${t("count")}: ${pname(p)}`, `<form id="countForm" class="stack" data-id="${esc(id)}"><div class="grid-form">
+    <label class="f">${esc(t("shelf"))}<input type="number" id="cf-shelf" min="0" step="1" value="${num(p.shelf)}"></label>
+    <label class="f">${esc(t("openBox"))}<input type="number" id="cf-open" min="0" step="1" value="${num(p.openBox)}"></label>
+    <label class="f">${esc(t("closed"))}<input type="number" id="cf-closed" min="0" step="1" value="${num(p.closed)}"></label></div>
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
+}
+function customerNewDrawer(kind) {
+  const staff = kind === "staff";
+  drawer(staff ? t("addStaff") : t("addCustomer"), `<form id="customerForm" class="stack" data-kind="${staff ? "staff" : "customer"}"><div class="grid-form">
+    <label class="f">${esc(t("supName"))}<input type="text" id="cu-name" required></label>
+    <label class="f">${esc(t("phone"))}<input type="tel" id="cu-phone"></label>
+    ${staff ? `<label class="f">${esc(t("role"))}<input type="text" id="cu-role"></label>` : `<label class="f">${esc(t("limit"))}<input type="number" id="cu-limit" min="0" step="any" value="100"></label>`}</div>
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
+}
+function customerDrawer(id) {
+  const c = S.customers.get(id); const es = entriesOf(c).reverse();
+  drawer(`${c.name} · ${usd(balanceOf(c))}`, `<p class="muted mono">${esc(c.phone || "")}</p>
+    <div class="tbl"><table><thead><tr><th>${esc(t("day"))}</th><th></th><th class="n">${esc(t("amount"))}</th></tr></thead><tbody>
+    ${es.map((e) => `<tr><td class="mono">${esc(e.at.slice(0, 10))}</td><td>${e.type === "sale" ? esc(e.manual ? t("debt") : t("sale")) : `<span style="color:var(--good)">${esc(t("payment"))}</span>`}${e.note ? `<div class="muted" style="font-size:12px">${esc(e.note)}</div>` : ""}</td><td class="n">${e.type === "sale" ? "" : "−"}${usd(e.amount)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">—</td></tr>`}
+    </tbody></table></div><br><div class="row"><span class="spacer"></span><button class="btn danger" data-act="delCustomer" data-id="${esc(id)}" ${balanceOf(c) > 0.004 ? "disabled" : ""}>${esc(t("del"))}</button></div>`);
+}
+function addDebtDrawer(id) {
+  const c = S.customers.get(id);
+  drawer(`${t("addDebt")}: ${c.name}`, `<form id="addDebtForm" class="stack" data-id="${esc(id)}"><p class="mono">${esc(t("owes"))}: ${usd(balanceOf(c))}</p><div class="grid-form">
+    <label class="f">${esc(t("amount"))}<input type="number" id="ad-amount" min="0" step="any"></label>
+    <label class="f">${esc(t("currency"))}<select id="ad-cur"><option value="USD">$</option><option value="LBP">LBP</option></select></label>
+    <label class="f">${esc(t("note"))}<input type="text" id="ad-note"></label></div>
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
+}
+function customerPayDrawer(id) {
+  const c = S.customers.get(id);
+  drawer(`${t("recordPay")}: ${c.name}`, `<form id="custPayForm" class="stack" data-id="${esc(id)}"><p class="mono">${esc(t("owes"))}: ${usd(balanceOf(c))} = ${lbp(toLbp(balanceOf(c)))}</p><div class="grid-form">
+    <label class="f">${esc(t("amount"))}<input type="number" id="cp-amount" min="0" step="any" value="${(Math.round(balanceOf(c) * 100) / 100)}"></label>
+    <label class="f">${esc(t("currency"))}<select id="cp-cur"><option value="USD">$</option><option value="LBP">LBP</option></select></label>
+    <label class="f">${esc(t("note"))}<input type="text" id="cp-note"></label></div>
+    ${isStaff(c) ? `<label class="f chk"><input type="checkbox" id="cp-salary"> ${esc(t("fromSalary"))}</label>` : ""}
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
+}
+function paymentDrawer(id) {
+  const p = id ? S.payments.get(id) : { currency: "USD", due: dateKey() };
+  drawer(id ? t("addPay") : t("addPay"), `<form id="paymentForm" class="stack" data-id="${esc(id || "")}"><div class="grid-form">
+    <label class="f">${esc(t("to"))}<input type="text" id="py-to" required value="${esc(p.to || "")}"></label>
+    <label class="f">${esc(t("what"))}<input type="text" id="py-what" value="${esc(p.what || "")}"></label>
+    <label class="f">${esc(t("amount"))}<input type="number" id="py-amount" min="0" step="any" required value="${esc(p.amount ?? "")}"></label>
+    <label class="f">${esc(t("currency"))}<select id="py-cur"><option value="USD" ${p.currency === "USD" ? "selected" : ""}>$</option><option value="LBP" ${p.currency === "LBP" ? "selected" : ""}>LBP</option></select></label>
+    <label class="f">${esc(t("due"))}<input type="date" id="py-due" value="${esc(p.due || "")}"></label></div>
+    <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button>
+    <span class="spacer"></span>${id ? `<button class="btn danger" type="button" data-act="delPayment" data-id="${esc(id)}">${esc(t("del"))}</button>` : ""}</div></form>`);
+}
+
+// ---------- actions ----------
+function addToCart(p) {
+  if (p.weighed) { S.weighPending = p.id; S.lastReceipt = null; render(); setTimeout(() => { const el = $("#weighPrice"); if (el) el.focus(); }, 0); return; }
+  S.lastReceipt = null;
+  const line = S.cart.find((l) => l.pid === p.id && !l.weighed);
+  if (line) line.qty += 1; else S.cart.push({ pid: p.id, name: pname(p), qty: 1, price: num(p.price), cost: num(p.cost), weighed: false });
+  render();
+}
+
+async function finishSale() {
+  if (S.busy || !S.cart.length) return;
+  S.busy = true; render();
+  const tot = Math.round(cartTotal() * 100) / 100;
+  const now = new Date(); const day = dateKey(now); const at = now.toISOString();
+  // one sales document per till per hour: small documents, and no two tills write the same one
+  const ref = S.db.doc("sales/" + day + "_" + String(now.getHours()).padStart(2, "0") + "_" + DEV);
+  const paidUsd = num(S.pay.usd), paidLbp = num(S.pay.lbp);
+  const paidTotal = paidUsd + paidLbp / S.settings.rate;
+  const rid = uid();
+  const r = { id: rid, no: daySummary(day).n + 1, at, day, till: DEV, items: S.cart.map((l) => ({ ...l })), total: tot, method: S.pay.method,
+    customerId: S.pay.method === "credit" ? S.pay.customer : null, paidUsd, paidLbp,
+    changeUsd: S.pay.method === "cash" && paidTotal > 0 ? Math.max(0, paidTotal - tot) : 0, rate: S.settings.rate, vat: S.settings.vat };
+  const ok = await write(async () => {
+    const jobs = [ref.update({ receipts: { [rid]: r } }).catch((e) => { if (e && e.code === "invalid_argument") return ref.set({ date: day, till: DEV, receipts: { [rid]: r } }); throw e; })];
+    const qtyBy = new Map(); r.items.forEach((l) => { if (!l.weighed) qtyBy.set(l.pid, (qtyBy.get(l.pid) || 0) + l.qty); });
+    for (const [pid, q] of qtyBy) { const p = S.products.get(pid); if (p) jobs.push(S.db.doc("products/" + pid).update({ soldBy: { [DEV]: num(p._mine) + q } })); }
+    if (r.customerId) { const c = S.customers.get(r.customerId); if (c) jobs.push(addEntry(c, { at, type: "sale", amount: tot, note: "#" + r.no })); }
+    await Promise.all(jobs);
+  }, t("saleDone"));
+  S.busy = false;
+  if (ok) { S.lastReceipt = r; S.cart = []; S.pay = { method: "cash", usd: "", lbp: "", customer: "" }; S.weighPending = null; }
+  render(); const sb = $("#tillSearch"); if (sb) sb.focus();
+}
+
+document.addEventListener("click", async (ev) => {
+  const el = ev.target.closest("[data-act]");
+  if (!el) { const row = ev.target.closest("tr[data-row]"); if (row && !ev.target.closest("input,select,a")) productInfoDrawer(row.dataset.row); return; }
+  const a = el.dataset.act, id = el.dataset.id;
+  if (a === "tab") { S.tab = el.dataset.tab; try { history.replaceState(null, "", "#" + S.tab); } catch (e) {} render(); window.scrollTo(0, 0); return; }
+  if (a === "lang") { lang = lang === "en" ? "ar" : "en"; try { localStorage.setItem("maher-lang", lang); } catch (e) {} render(); return; }
+  if (a === "closeDrawer") { closeDrawer(); return; }
+  if (a === "addItem") { const p = S.products.get(id); if (p) addToCart(p); return; }
+  if (a === "qty") { const l = S.cart[+el.dataset.i]; l.qty = Math.max(1, l.qty + +el.dataset.d); render(); return; }
+  if (a === "rmLine") { S.cart.splice(+el.dataset.i, 1); render(); return; }
+  if (a === "clearCart") { S.cart = []; S.weighPending = null; S.pay = { method: "cash", usd: "", lbp: "", customer: "" }; render(); return; }
+  if (a === "method") { S.pay.method = el.dataset.m; render(); return; }
+  if (a === "weighCancel") { S.weighPending = null; render(); return; }
+  if (a === "weighAdd") {
+    const v = num($("#weighPrice").value); if (v <= 0) return;
+    const p = S.products.get(S.weighPending); const priceUsd = $("#weighCur").value === "lbp" ? v / S.settings.rate : v;
+    S.cart.push({ pid: p.id, name: pname(p), qty: 1, price: Math.round(priceUsd * 10000) / 10000, cost: 0, weighed: true });
+    S.weighPending = null; render(); const s = $("#tillSearch"); if (s) s.focus(); return;
+  }
+  if (a === "finish") { await finishSale(); return; }
+  if (a === "newSale") { S.lastReceipt = null; render(); const s = $("#tillSearch"); if (s) s.focus(); return; }
+  if (a === "openProduct") { productDrawer(id, el.dataset.sec, el.dataset.cat); return; }
+  if (a === "stockSec") { S.stockSec = el.dataset.v; S.shelfCat = "all"; render(); return; }
+  if (a === "shelfCat") { S.shelfCat = el.dataset.v; render(); return; }
+  if (a === "productInfo") { productInfoDrawer(id); return; }
+  if (a === "linkSupplier") { const sel = $("#pi-sup"); if (sel && sel.value && await write(() => S.db.doc("products/" + id).update({ supplierId: sel.value }), t("linked")) && $("#overlay").innerHTML) productInfoDrawer(id); return; }
+  if (a === "unlinkSupplier") { const p = S.products.get(id); drawer(pname(p), supplierPicker(p)); return; }
+  if (a === "openSupplier") { supplierDrawer(id); return; }
+  if (a === "copyText") { try { await navigator.clipboard.writeText(el.dataset.text); toast(t("copied")); } catch (e) { toast(el.dataset.text); } return; }
+  if (a === "delSupplier") {
+    if ([...S.products.values()].some((p) => p.supplierId === id)) { toast(t("delSupBlocked")); return; }
+    if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
+    if (await write(() => S.db.doc("suppliers/" + id).delete())) closeDrawer(); return;
+  }
+  if (a === "openReceive") { receiveDrawer(id); return; }
+  if (a === "openCount") { countDrawer(id); return; }
+  if (a === "delProduct") {
+    if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
+    if (await write(() => S.db.doc("products/" + id).delete())) closeDrawer(); return;
+  }
+  if (a === "removeExamples") {
+    const ex = [...S.products.values()].filter((p) => p.example);
+    await write(async () => { for (const p of ex) await S.db.doc("products/" + p.id).delete(); }, t("examplesGone")); return;
+  }
+  if (a === "openBoxNow") { const p = S.products.get(id); if (num(p.closed) > 0) await write(() => S.db.doc("products/" + id).update(stockBase(p, { closed: num(p.closed) - 1, openBox: num(p.openBox) + boxSize(p) })), t("opened")); return; }
+  if (a === "toShelf") {
+    const p = S.products.get(id); const inp = document.getElementById("mv-" + id);
+    const n = Math.min(num(p.openBox), inp && inp.value ? Math.round(num(inp.value)) : num(p.openBox)); if (n <= 0) return;
+    if (inp) inp.value = "";
+    await write(() => S.db.doc("products/" + id).update(stockBase(p, { openBox: num(p.openBox) - n, shelf: num(p.shelf) + n })), t("moved")); return;
+  }
+  if (a === "openNewCustomer") { customerNewDrawer(el.dataset.kind); return; }
+  if (a === "openAddDebt") { addDebtDrawer(id); return; }
+  if (a === "debtTab") { S.debtTab = el.dataset.v; render(); return; }
+  if (a === "openCustomer") { customerDrawer(id); return; }
+  if (a === "openCustomerPay") { customerPayDrawer(id); return; }
+  if (a === "delCustomer") {
+    if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
+    if (await write(() => S.db.doc("customers/" + id).delete())) closeDrawer(); return;
+  }
+  if (a === "copyReminder") {
+    const c = S.customers.get(id); const msg = T[lang].reminder(c.name, `${usd(balanceOf(c))} (${lbp(toLbp(balanceOf(c)))})`);
+    try { await navigator.clipboard.writeText(msg); toast(t("copied")); } catch (e) { drawer(t("copyReminder"), `<textarea style="width:100%;min-height:120px" id="remText">${esc(msg)}</textarea><p class="muted mono">${esc(c.phone || "")}</p>`); const ta = $("#remText"); ta.focus(); ta.select(); }
+    return;
+  }
+  if (a === "payTab") { S.payTab = el.dataset.v; render(); return; }
+  if (a === "openPayment") { paymentDrawer(id); return; }
+  if (a === "markPaid") { const m = document.getElementById("pm-" + id); await write(() => S.db.doc("payments/" + id).update({ paidAt: new Date().toISOString(), method: m ? m.value : "till" }), t("saved")); return; }
+  if (a === "delPayment") {
+    if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
+    if (await write(() => S.db.doc("payments/" + id).delete())) closeDrawer(); return;
+  }
+  if (a === "saveSettings") {
+    const s = { rate: Math.max(1, num($("#setRate").value, S.settings.rate)), vat: Math.max(0, num($("#setVat").value, S.settings.vat)), shelfMin: Math.max(0, num($("#setShelf").value, S.settings.shelfMin)) };
+    await write(() => S.db.doc("settings/main").set(s), t("saved")); return;
+  }
+});
+
+document.addEventListener("input", (ev) => {
+  if (ev.target && ev.target.dataset) ev.target.dataset.typed = "1";
+  const k = ev.target.dataset && ev.target.dataset.in; if (!k) return;
+  if (k === "q") { S.q = ev.target.value; render(); }
+  else if (k === "stockQ") { S.stockQ = ev.target.value; render(); }
+  else if (k.startsWith("pay.")) { S.pay[k.slice(4)] = ev.target.value; render(); }
+});
+document.addEventListener("change", (ev) => { if (ev.target.id === "payCustomer") { S.pay.customer = ev.target.value; render(); } });
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && $("#overlay").innerHTML) { closeDrawer(); return; }
+  if (ev.key !== "Enter") return;
+  if (ev.target.id === "tillSearch") {
+    ev.preventDefault();
+    const v = ev.target.value.trim(); if (!v) return;
+    const prods = [...S.products.values()];
+    let p = prods.find((x) => x.barcode && x.barcode === v);
+    if (!p) { const ql = v.toLowerCase(); const m = prods.filter((x) => (x.name || "").toLowerCase().includes(ql) || (x.nameAr || "").includes(v)); if (m.length === 1) p = m[0]; }
+    if (p) { S.q = ""; ev.target.value = ""; addToCart(p); } else toast(t("notFound"));
+  } else if (ev.target.id === "weighPrice") { ev.preventDefault(); const b = document.querySelector('[data-act="weighAdd"]'); if (b) b.click(); }
+});
+
+document.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target; const id = f.dataset.id;
+  const v = (s) => (f.querySelector(s) || {}).value;
+  if (f.id === "productForm") {
+    const data = { name: v("#pf-name").trim(), nameAr: v("#pf-nameAr").trim(), barcode: v("#pf-barcode").trim(), category: v("#pf-category").trim(),
+      price: num(v("#pf-price")), cost: num(v("#pf-cost")), boxSize: Math.max(1, Math.round(num(v("#pf-boxSize"), 1))), reorder: Math.max(0, Math.round(num(v("#pf-reorder")))),
+      weighed: f.querySelector("#pf-weighed").checked, supplierId: v("#pf-supplier") || null };
+    if (!data.name && !data.nameAr) { f.querySelector("#pf-nameAr").focus(); return; }
+    if (data.barcode && [...S.products.values()].some((p) => p.barcode === data.barcode && p.id !== id)) { toast(t("barcode") + " ✕"); return; }
+    if (await write(async () => {
+      if (id) { await S.db.doc("products/" + id).update({ ...data, example: false }); }
+      else { const nid = uid(); await S.db.doc("products/" + nid).set({ id: nid, ...data, shelf: 0, openBox: 0, closed: 0, soldBase: 0, createdAt: new Date().toISOString() }); }
+    }, t("saved"))) closeDrawer();
+  }
+  if (f.id === "quickSupForm") {
+    const name = v("#qs-name").trim(); if (!name) return; const nid = uid();
+    const data = { id: nid, name, phone: v("#qs-phone").trim(), phone2: "", independent: v("#qs-type") === "alone", company: v("#qs-company").trim(), visits: "", address: "", notes: "", createdAt: new Date().toISOString() };
+    if (await write(async () => { await S.db.doc("suppliers/" + nid).set(data); await S.db.doc("products/" + id).update({ supplierId: nid }); }, t("linked")) && $("#overlay").innerHTML) productInfoDrawer(id);
+  }
+  if (f.id === "supplierForm") {
+    const data = { name: v("#su-name").trim(), phone: v("#su-phone").trim(), phone2: v("#su-phone2").trim(), independent: v("#su-type") === "alone",
+      company: v("#su-company").trim(), visits: v("#su-visits").trim(), address: v("#su-address").trim(), notes: (f.querySelector("#su-notes").value || "").trim() };
+    if (!data.name) return;
+    if (await write(async () => {
+      if (id) await S.db.doc("suppliers/" + id).update(data);
+      else { const nid = uid(); await S.db.doc("suppliers/" + nid).set({ id: nid, ...data, createdAt: new Date().toISOString() }); }
+    }, t("saved"))) closeDrawer();
+  }
+  if (f.id === "receiveForm") {
+    const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#rf-boxes")))); const pc = Math.max(0, Math.round(num(v("#rf-pieces"))));
+    const upd = stockBase(p, { closed: num(p.closed) + bx }); const where = v("#rf-where"); upd[where] = num(p[where]) + pc;
+    const nc = v("#rf-cost"); if (nc !== "" && nc != null) upd.cost = num(nc);
+    if (await write(() => S.db.doc("products/" + id).update(upd), t("received"))) closeDrawer();
+  }
+  if (f.id === "countForm") {
+    const upd = { shelf: Math.max(0, Math.round(num(v("#cf-shelf")))), openBox: Math.max(0, Math.round(num(v("#cf-open")))), closed: Math.max(0, Math.round(num(v("#cf-closed")))), soldBase: num(S.products.get(id)._soldTotal), countedAt: new Date().toISOString() };
+    if (await write(() => S.db.doc("products/" + id).update(upd), t("counted"))) closeDrawer();
+  }
+  if (f.id === "customerForm") {
+    const nid = uid(); const name = v("#cu-name").trim(); if (!name) return;
+    const staff = f.dataset.kind === "staff";
+    const rec = { id: nid, name, phone: v("#cu-phone").trim(), kind: staff ? "staff" : "customer", entries: {} };
+    if (staff) rec.role = (v("#cu-role") || "").trim(); else rec.limit = num(v("#cu-limit"));
+    if (await write(() => S.db.doc("customers/" + nid).set(rec), t("saved"))) closeDrawer();
+  }
+  if (f.id === "addDebtForm") {
+    const c = S.customers.get(id); let amt = num(v("#ad-amount")); if (amt <= 0) return;
+    const cur = v("#ad-cur"); const note = ((v("#ad-note") || "").trim() + (cur === "LBP" ? ` (${lbp(amt)})` : "")).trim();
+    if (cur === "LBP") amt = amt / S.settings.rate;
+    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "sale", manual: true, amount: Math.round(amt * 100) / 100, note }), t("debtDone"))) closeDrawer();
+  }
+  if (f.id === "custPayForm") {
+    const c = S.customers.get(id); let amt = num(v("#cp-amount")); if (amt <= 0) return;
+    const cur = v("#cp-cur"); const sal = f.querySelector("#cp-salary"); const note = (v("#cp-note") || "").trim() + (cur === "LBP" ? ` (${lbp(amt)})` : "") + (sal && sal.checked ? ` · ${t("fromSalary")}` : "");
+    if (cur === "LBP") amt = amt / S.settings.rate;
+    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "pay", amount: Math.round(amt * 100) / 100, note: note.trim() }), t("payDone"))) closeDrawer();
+  }
+  if (f.id === "paymentForm") {
+    const data = { to: v("#py-to").trim(), what: v("#py-what").trim(), amount: num(v("#py-amount")), currency: v("#py-cur"), due: v("#py-due") };
+    if (!data.to || data.amount <= 0) return;
+    if (await write(async () => {
+      if (id) await S.db.doc("payments/" + id).update(data);
+      else { const nid = uid(); await S.db.doc("payments/" + nid).set({ id: nid, ...data, paidAt: null, method: null, createdAt: new Date().toISOString() }); }
+    }, t("saved"))) closeDrawer();
+  }
+});
+
+// ---------- connect ----------
+render();
+(async () => {
+  let db = null;
+  try { db = await window.claude?.use?.("db"); } catch (e) { db = null; }
+  if (!db) { S.failed = true; render(); return; }
+  S.db = db;
+  try { const user = await window.claude.use("user"); if (user) { const w = await user.can("data.write"); if (w === false) S.canWrite = false; } } catch (e) {}
+  let pending = 6; const done = () => { if (--pending <= 0 && !S.ready) { S.ready = true; render(); return; } if (S.ready) scheduleRender(); else render(); };
+  const intoMap = (m) => (snap) => { m.clear(); snap.docs.forEach((d) => m.set(d.id, { ...d.data(), id: d.id })); done(); };
+  const onErr = (e) => { console.error(e); done(); };
+  db.collection("products").onSnapshot((snap) => {
+    S.products.clear();
+    snap.docs.forEach((d) => {
+      const raw = d.data(); const soldTotal = Object.values(raw.soldBy || {}).reduce((a, b) => a + num(b), 0);
+      const since = soldTotal - num(raw.soldBase);
+      S.products.set(d.id, { ...raw, ...(since > 0 ? takeFromStock(raw, since) : {}), id: d.id, _soldTotal: soldTotal, _mine: num((raw.soldBy || {})[DEV]) });
+    });
+    done();
+  }, onErr);
+  db.collection("customers").onSnapshot(intoMap(S.customers), onErr);
+  db.collection("suppliers").onSnapshot(intoMap(S.suppliers), onErr);
+  db.collection("payments").onSnapshot(intoMap(S.payments), onErr);
+  db.collection("sales").where("date", ">=", addDays(dateKey(), -14)).onSnapshot(intoMap(S.days), onErr);
+  db.doc("settings/main").onSnapshot((d) => { if (d.exists) S.settings = { ...S.settings, ...d.data() }; done(); }, onErr);
+})();
+})();
+</script>

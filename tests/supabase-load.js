@@ -179,16 +179,17 @@ async function readStore() {
       // deliveries + boxes on best sellers that tills are selling right now
       await pg.click('[data-tab=stock]'); await sleep(200);
       const p = 'p' + (round % 10);
-      await pg.click(`[data-act=openReceive][data-id=${p}]`); await pg.fill('#rf-boxes', '2'); await pg.click('#receiveForm button[type=submit]');
+      await pg.click(`[data-act=openReceive][data-id=${p}]`); await pg.fill('#rf-boxes', '2'); await pg.click('#receiveForm button[type=submit]'); await pg.waitForSelector('#receiveForm', { state: 'detached' });
       exp.recv[p] = (exp.recv[p] || 0) + 24;
       // take boxes out of stock on a product the tills are not selling
-      await sleep(150); await pg.click(`[data-act=openCount][data-id=p${200 + round}]`); await pg.fill('#tk-boxes', String(1 + (round % 3))); await pg.click('#takeForm button[type=submit]');
+      await sleep(150); await pg.click(`[data-act=openCount][data-id=p${200 + round}]`); await pg.fill('#tk-boxes', String(1 + (round % 3))); await pg.click('#takeForm button[type=submit]'); await pg.waitForSelector('#takeForm', { state: 'detached' });
       exp.taken['p' + (200 + round)] = 1 + (round % 3);
       // supplier from the product panel
-      await pg.click(`tr[data-row=p${100 + round}] td.n`); await pg.fill('#qs-name', 'Supplier ' + round); await pg.fill('#qs-phone', '70 00' + round); await pg.click('#quickSupForm button[type=submit]');
+      await pg.click(`tr[data-row=p${100 + round}] td.n`); await pg.fill('#qs-name', 'Supplier ' + round); await pg.fill('#qs-phone', '70 00' + round); await pg.click('#quickSupForm button[type=submit]'); await pg.waitForSelector('#quickSupForm', { state: 'detached' });
       exp.linked['p' + (100 + round)] = 'Supplier ' + round; await sleep(150); await pg.click('[data-act=closeDrawer]');
       await pg.click('[data-tab=boxes]'); await sleep(150);
-      await pg.click(`[data-act=openBoxNow][data-id=p${(round + 3) % 10}]`); await sleep(150);
+      await pg.click('[data-act=openOpened]:not([data-id])'); await pg.fill('#ob-name', 'Ketchup box ' + round); await pg.fill('#ob-left', '12'); await pg.click('#openedForm button[type=submit]'); await pg.waitForSelector('#openedForm', { state: 'detached' });
+      await pg.click('[data-act=openOpened][data-id]'); await pg.fill('#ob-left', String(round)); await pg.click('#openedForm button[type=submit]'); await pg.waitForSelector('#openedForm', { state: 'detached' });
       // debts: customers and employee, while tills put sales on the same accounts
       await pg.click('[data-tab=customers]'); await sleep(150);
       await pg.click('[data-act=openAddDebt][data-id=c1]'); await pg.fill('#ad-amount', '5'); await pg.click('#addDebtForm button[type=submit]'); exp.bal.c1 += 5; await sleep(150);
@@ -205,7 +206,7 @@ async function readStore() {
     }
   }
   const T0 = Date.now();
-  await Promise.all([...pages.slice(0, TILLS).map(till), office(pages[TILLS])]);
+  await Promise.all([...pages.slice(0, TILLS).map(till), office(pages[TILLS]).catch(async (e) => { await pages[TILLS].screenshot({ path: __dirname + '/../../fail.png' }).catch(() => {}); console.error('office stopped:', errs.slice(0, 5)); throw e; })]);
   await new Promise(r => setTimeout(r, LAT * 5 + 1000));
   const secs = ((Date.now() - T0) / 1000).toFixed(0);
   // ---- check the database ----
@@ -219,6 +220,7 @@ async function readStore() {
   for (const [pid, n] of Object.entries(exp.taken)) { const got = store.get('products/' + pid).closed; if (got !== 10 - n) wrong.push(`${pid} take out: want ${10 - n} closed got ${got}`); }
   const balOf = (id) => { const c = store.get('customers/' + id); const es = Array.isArray(c.entries) ? c.entries : Object.values(c.entries || {}); return +es.reduce((s, e) => s + (e.type === 'sale' ? e.amount : -e.amount), 0).toFixed(2); };
   const debts = Object.fromEntries(Object.keys(exp.bal).map(id => [id, { expected: +exp.bal[id].toFixed(2), saved: balOf(id) }]));
+  const opened = [...store].filter(([k]) => k.startsWith('opened/')).map(([, v]) => v);
   const pays = [...store].filter(([k]) => k.startsWith('payments/')).map(([, v]) => v);
   const sups = [...store].filter(([k]) => k.startsWith('suppliers/')).map(([, v]) => v);
   const linkedOk = Object.entries(exp.linked).filter(([pid, name]) => { const p = store.get('products/' + pid); const sp = p && sups.find(x => x.id === p.supplierId); return sp && sp.name === name; }).length;
@@ -237,6 +239,7 @@ async function readStore() {
   console.log(JSON.stringify({ devices: TILLS + 1, products: P + 40, minutes: (secs / 60).toFixed(1), salesRung: exp.receipts, receiptsSaved: receipts, uniqueReceipts: rids.size,
     stockWrong: wrong, debts, paymentsAdded: `${pays.length} of ${exp.pays}`, paymentsPaid: `${pays.filter(p => p.paidAt).length} of ${exp.paid}`, suppliersLinked: `${linkedOk} of ${Object.keys(exp.linked).length}`,
     scanMs: { avg: avg(scanTimes), p95: p95(scanTimes) }, saleSeconds: { avg: (avg(saleTimes) / 1000).toFixed(1), p95: (p95(saleTimes) / 1000).toFixed(1) },
+    openedBoxes: `${opened.length} of 6, newest left ${(opened.sort((a, b) => b.at.localeCompare(a.at))[0] || {}).left}`,
     restCalls, liveEvents: events, oversizeEvents: bigEvents, devicesAgree: agree,
     tabSwitch: tabTimes, msPerKeystroke: typeMs, biggestDocBytes: big, errors: errs.slice(0, 10) }, null, 1));
   await browser.close(); await pool.end();

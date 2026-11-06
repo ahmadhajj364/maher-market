@@ -50,7 +50,7 @@
   --t-coral: #3e2019; --i-coral: #f4a18d; --t-teal: #113534; --i-teal: #7fd7d5; --t-pink: #3b1c2b; --i-pink: #f2a3c9; --t-olive: #2b3014; --i-olive: #c7d47c; color-scheme: dark }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
 .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -59,6 +59,11 @@ header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; b
 .brand small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
 .rate { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+/* phones: all tabs visible as a grid instead of a strip that runs off the screen */
+@media (max-width: 700px) { nav.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
+  nav.tabs button { padding: 7px 4px; font-size: 13px; line-height: 1.25; text-align: center; white-space: normal; } nav.tabs .dot { margin-inline-start: 3px; } }
+.obox { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.obox .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; } .obox .left { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--ink); }
 nav.tabs button { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px 12px; border-radius: var(--r); cursor: pointer; position: relative; }
 nav.tabs button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
 nav.tabs .dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-inline-start: 6px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-family: var(--mono); }
@@ -201,7 +206,7 @@ a { color: var(--accent); }
 const T = {
   en: {
     brand: "Moasaset Maher Al Tijariya", brandSub: "Shop system",
-    tab_till: "Till", tab_stock: "Products & stock", tab_boxes: "Opened boxes", tab_customers: "Debts",
+    tab_till: "Till", tab_stock: "Products & stock", tab_boxes: "Opened boxes", openedAdd: "+ Add opened box", boxName: "Box name", leftInBox: "How many left in the box", openedSub: "Boxes you opened and how much is still in each.", noOpened: "No opened boxes yet.", openedOn: "Opened", leftShort: "Left", editOpened: "Change",  tab_customers: "Debts",
     tab_payments: "Payments", tab_today: "Today", tab_settings: "Settings",
     lang: "عربي", rate: "Rate", perUsd: "LBP per $1",
     loading: "Loading…", noDb: "Could not reach the store database. Check the internet connection; trying again…",
@@ -256,7 +261,7 @@ const T = {
   },
   ar: {
     brand: "مؤسسة ماهر التجارية", brandSub: "نظام المحل",
-    tab_till: "الصندوق", tab_stock: "المنتجات والمخزون", tab_boxes: "الكراتين المفتوحة", tab_customers: "الديون",
+    tab_till: "الصندوق", tab_stock: "المنتجات والمخزون", tab_boxes: "الكراتين المفتوحة", openedAdd: "+ أضف كرتونة مفتوحة", boxName: "اسم الكرتونة", leftInBox: "كم بقي بالكرتونة", openedSub: "الكراتين التي فتحتها وكم بقي في كل واحدة.", noOpened: "لا يوجد كراتين مفتوحة بعد.", openedOn: "فُتحت", leftShort: "الباقي", editOpened: "تعديل",  tab_customers: "الديون",
     tab_payments: "الدفعات", tab_today: "اليوم", tab_settings: "الإعدادات",
     lang: "English", rate: "السعر", perUsd: "ل.ل. لكل ١$",
     loading: "جار التحميل…", noDb: "تعذر الوصول إلى قاعدة بيانات المحل. تأكد من الإنترنت؛ جار إعادة المحاولة…",
@@ -317,7 +322,7 @@ const t = (k) => (T[lang][k] ?? T.en[k] ?? k);
 // ---------- state ----------
 const S = {
   db: null, canWrite: true, ready: false, failed: false, auth: "checking", offline: false, loginErr: "", loggingIn: false,
-  products: new Map(), suppliers: new Map(), customers: new Map(), payments: new Map(), days: new Map(),
+  products: new Map(), opened: new Map(), suppliers: new Map(), customers: new Map(), payments: new Map(), days: new Map(),
   settings: { rate: 89500, vat: 11, shelfMin: 2 },
   tab: "till", cart: [], pay: { method: "cash", usd: "", lbp: "", customer: "" },
   q: "", stockQ: "", stockSec: "all", debtTab: "customers", shelfCat: "all", lastReceipt: null, weighPending: null, payTab: "upcoming",
@@ -404,7 +409,7 @@ function renderHeader() {
   const prods = [...S.products.values()];
   const counts = {
     stock: prods.filter(isReorder).length,
-    boxes: prods.filter(needsRefill).length,
+
     customers: [...S.customers.values()].filter(isLate).length,
     payments: [...S.payments.values()].filter((p) => !p.paidAt && p.due && p.due < dateKey()).length,
   };
@@ -654,17 +659,13 @@ VIEWS.suppliers = () => {
 
 // Opened boxes
 VIEWS.boxes = () => {
-  const prods = [...S.products.values()].filter((p) => !p.weighed && boxSize(p) > 1).sort((a, b) => pname(a).localeCompare(pname(b)));
-  const ref = prods.filter(needsRefill);
-  const rows = prods.map((p) => `<tr><td><b>${esc(pname(p))}</b>${needsRefill(p) ? ` <span class="pill warn">${esc(t("refill"))}</span>` : ""}</td>
-      <td class="n">${boxSize(p)}</td><td class="n">${num(p.shelf)}</td><td class="n">${num(p.openBox)}</td><td class="n">${num(p.closed)}</td><td class="n"><b>${totalOf(p)}</b></td>
-      <td><div class="row" style="flex-wrap:nowrap"><button class="btn small" data-act="openBoxNow" data-id="${esc(p.id)}" ${num(p.closed) > 0 && S.canWrite ? "" : "disabled"}>${esc(t("openABox"))}</button>
-      <input type="number" id="mv-${esc(p.id)}" min="1" step="1" placeholder="${num(p.openBox) || ""}" style="width:70px"><button class="btn small" data-act="toShelf" data-id="${esc(p.id)}" ${num(p.openBox) > 0 && S.canWrite ? "" : "disabled"}>${esc(t("toShelf"))}</button></div></td></tr>`).join("");
-  return `<div class="stack"><div><h2>${esc(t("tab_boxes"))}</h2><p class="sub">${esc(t("boxesSub"))}</p></div>
-    <div class="panel"><h3>${esc(t("refill"))} ${ref.length ? `<span class="pill warn">${ref.length}</span>` : ""}</h3><p class="sub" style="margin-bottom:8px">${esc(t("refillSub"))}</p>
-    ${ref.length ? `<div class="lines">${ref.map((p) => `<div class="row"><b>${esc(pname(p))}</b><span class="muted mono">${esc(t("shelf"))} ${num(p.shelf)} · ${esc(t("openBox"))} ${num(p.openBox)} · ${esc(t("closed"))} ${num(p.closed)}</span></div>`).join("")}</div>` : `<p class="muted">${esc(t("nothingRefill"))}</p>`}</div>
-    ${prods.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("item"))}</th><th class="n">${esc(t("boxSize"))}</th><th class="n">${esc(t("shelf"))}</th><th class="n">${esc(t("openBox"))}</th><th class="n">${esc(t("closed"))}</th><th class="n">${esc(t("total_pcs"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-      : `<div class="panel empty">${esc(t("noBoxItems"))}</div>`}</div>`;
+  const list = [...S.opened.values()].sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><div><h2>${esc(t("tab_boxes"))}</h2><p class="sub">${esc(t("openedSub"))}</p></div>
+    <button class="btn primary" data-act="openOpened" ${S.canWrite ? "" : "disabled"}>${esc(t("openedAdd"))}</button></div>
+    ${list.length ? `<div class="lines">${list.map((o) => `<div class="panel obox"><div class="nm"><b>${esc(o.name)}</b><div class="muted mono" style="font-size:12px">${esc(t("openedOn"))} ${esc(String(o.at || "").slice(0, 10))}</div></div>
+        <div style="text-align:center"><div class="left">${num(o.left)}</div><div class="muted" style="font-size:12px">${esc(t("leftShort"))}</div></div>
+        <button class="btn small" data-act="openOpened" data-id="${esc(o.id)}">${esc(t("editOpened"))}</button></div>`).join("")}</div>`
+      : `<div class="panel empty">${esc(t("noOpened"))}</div>`}</div>`;
 };
 
 // Debts: customers and employees
@@ -774,6 +775,16 @@ let delArmed = null;
 function drawer(title, body) {
   $("#overlay").innerHTML = `<div class="drawer-bg" data-act="closeDrawer"></div><div class="drawer" role="dialog" aria-label="${esc(title)}"><div class="head"><h3 style="margin:0">${esc(title)}</h3><button class="btn small" data-act="closeDrawer" aria-label="${esc(t("cancel"))}">✕</button></div>${body}</div>`;
   const first = $("#overlay input, #overlay select"); if (first) first.focus();
+}
+function openedDrawer(id) {
+  const o = id ? S.opened.get(id) : null;
+  const names = [...new Set([...S.products.values()].filter((p) => !p.weighed).map(pname))].sort();
+  drawer(o ? o.name : t("openedAdd"), `<form id="openedForm" class="stack" data-id="${esc(id || "")}"><div class="stack">
+    <label class="f">${esc(t("boxName"))}<input id="ob-name" list="ob-names" required value="${esc(o ? o.name : "")}"></label>
+    <label class="f">${esc(t("leftInBox"))}<input type="number" id="ob-left" min="0" step="1" required value="${o ? num(o.left) : ""}"></label></div>
+    <datalist id="ob-names">${names.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+    <div class="row"><button class="btn primary" type="submit" ${S.canWrite ? "" : "disabled"}>${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button>
+    ${o ? `<button class="btn danger" type="button" data-act="delOpened" data-id="${esc(o.id)}">${esc(t("del"))}</button>` : ""}</div></form>`);
 }
 function closeDrawer() { $("#overlay").innerHTML = ""; delArmed = null; }
 
@@ -1007,6 +1018,11 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "payTab") { S.payTab = el.dataset.v; render(); return; }
   if (a === "openPayment") { paymentDrawer(id); return; }
+  if (a === "openOpened") { openedDrawer(id); return; }
+  if (a === "delOpened") {
+    if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
+    if (await write(() => S.db.doc("opened/" + id).delete())) closeDrawer(); return;
+  }
   if (a === "markPaid") { const m = document.getElementById("pm-" + id); await write(() => S.db.doc("payments/" + id).update({ paidAt: new Date().toISOString(), method: m ? m.value : "till" }), t("saved")); return; }
   if (a === "delPayment") {
     if (delArmed !== id) { delArmed = id; el.textContent = t("confirmDel"); return; }
@@ -1053,12 +1069,12 @@ document.addEventListener("submit", async (ev) => {
     if (await write(async () => {
       if (id) { await S.db.doc("products/" + id).update({ ...data, example: false }); }
       else { const nid = uid(); await S.db.doc("products/" + nid).set({ id: nid, ...data, shelf: 0, openBox: 0, closed: 0, soldBase: 0, createdAt: new Date().toISOString() }); }
-    }, t("saved"))) closeDrawer();
+    }, t("saved")) && f.isConnected) closeDrawer();
   }
   if (f.id === "quickSupForm") {
     const name = v("#qs-name").trim(); if (!name) return; const nid = uid();
     const data = { id: nid, name, phone: v("#qs-phone").trim(), phone2: "", independent: v("#qs-type") === "alone", company: v("#qs-company").trim(), visits: "", address: "", notes: "", createdAt: new Date().toISOString() };
-    if (await write(async () => { await S.db.doc("suppliers/" + nid).set(data); await S.db.doc("products/" + id).update({ supplierId: nid }); }, t("linked")) && $("#overlay").innerHTML) productInfoDrawer(id);
+    if (await write(async () => { await S.db.doc("suppliers/" + nid).set(data); await S.db.doc("products/" + id).update({ supplierId: nid }); }, t("linked")) && f.isConnected) productInfoDrawer(id);
   }
   if (f.id === "supplierForm") {
     const data = { name: v("#su-name").trim(), phone: v("#su-phone").trim(), phone2: v("#su-phone2").trim(), independent: v("#su-type") === "alone",
@@ -1067,40 +1083,45 @@ document.addEventListener("submit", async (ev) => {
     if (await write(async () => {
       if (id) await S.db.doc("suppliers/" + id).update(data);
       else { const nid = uid(); await S.db.doc("suppliers/" + nid).set({ id: nid, ...data, createdAt: new Date().toISOString() }); }
-    }, t("saved"))) closeDrawer();
+    }, t("saved")) && f.isConnected) closeDrawer();
   }
   if (f.id === "receiveForm") {
     const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#rf-boxes"))));
     const upd = stockBase(p, { closed: num(p.closed) + bx });
-    if (await write(() => S.db.doc("products/" + id).update(upd), t("received"))) closeDrawer();
+    if (await write(() => S.db.doc("products/" + id).update(upd), t("received")) && f.isConnected) closeDrawer();
+  }
+  if (f.id === "openedForm") {
+    const name = v("#ob-name").trim(); if (!name) return; const left = Math.max(0, Math.round(num(v("#ob-left"))));
+    if (await write(() => id ? S.db.doc("opened/" + id).update({ name, left }) : (() => { const nid = uid(); return S.db.doc("opened/" + nid).set({ id: nid, name, left, at: new Date().toISOString() }); })(), t("saved")) && f.isConnected) closeDrawer();
+    return;
   }
   if (f.id === "takeForm") {
     const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#tk-boxes"))));
     if (bx > num(p.closed)) { toast(t("notEnough")); return; }
-    if (await write(() => S.db.doc("products/" + id).update(stockBase(p, { closed: num(p.closed) - bx })), t("taken"))) closeDrawer();
+    if (await write(() => S.db.doc("products/" + id).update(stockBase(p, { closed: num(p.closed) - bx })), t("taken")) && f.isConnected) closeDrawer();
   }
   if (f.id === "countForm") {
     const upd = { shelf: Math.max(0, Math.round(num(v("#cf-shelf")))), openBox: Math.max(0, Math.round(num(v("#cf-open")))), closed: Math.max(0, Math.round(num(v("#cf-closed")))), soldBase: num(S.products.get(id)._soldTotal), countedAt: new Date().toISOString() };
-    if (await write(() => S.db.doc("products/" + id).update(upd), t("counted"))) closeDrawer();
+    if (await write(() => S.db.doc("products/" + id).update(upd), t("counted")) && f.isConnected) closeDrawer();
   }
   if (f.id === "customerForm") {
     const nid = uid(); const name = v("#cu-name").trim(); if (!name) return;
     const staff = f.dataset.kind === "staff";
     const rec = { id: nid, name, phone: v("#cu-phone").trim(), kind: staff ? "staff" : "customer", entries: {} };
     if (staff) rec.role = (v("#cu-role") || "").trim(); else rec.limit = num(v("#cu-limit"));
-    if (await write(() => S.db.doc("customers/" + nid).set(rec), t("saved"))) closeDrawer();
+    if (await write(() => S.db.doc("customers/" + nid).set(rec), t("saved")) && f.isConnected) closeDrawer();
   }
   if (f.id === "addDebtForm") {
     const c = S.customers.get(id); let amt = num(v("#ad-amount")); if (amt <= 0) return;
     const cur = v("#ad-cur"); const note = ((v("#ad-note") || "").trim() + (cur === "LBP" ? ` (${lbp(amt)})` : "")).trim();
     if (cur === "LBP") amt = amt / S.settings.rate;
-    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "sale", manual: true, amount: Math.round(amt * 100) / 100, note }), t("debtDone"))) closeDrawer();
+    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "sale", manual: true, amount: Math.round(amt * 100) / 100, note }), t("debtDone")) && f.isConnected) closeDrawer();
   }
   if (f.id === "custPayForm") {
     const c = S.customers.get(id); let amt = num(v("#cp-amount")); if (amt <= 0) return;
     const cur = v("#cp-cur"); const sal = f.querySelector("#cp-salary"); const note = (v("#cp-note") || "").trim() + (cur === "LBP" ? ` (${lbp(amt)})` : "") + (sal && sal.checked ? ` · ${t("fromSalary")}` : "");
     if (cur === "LBP") amt = amt / S.settings.rate;
-    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "pay", amount: Math.round(amt * 100) / 100, note: note.trim() }), t("payDone"))) closeDrawer();
+    if (await write(() => addEntry(c, { at: new Date().toISOString(), type: "pay", amount: Math.round(amt * 100) / 100, note: note.trim() }), t("payDone")) && f.isConnected) closeDrawer();
   }
   if (f.id === "paymentForm") {
     const data = { to: v("#py-to").trim(), what: v("#py-what").trim(), amount: num(v("#py-amount")), currency: v("#py-cur"), due: v("#py-due") };
@@ -1108,7 +1129,7 @@ document.addEventListener("submit", async (ev) => {
     if (await write(async () => {
       if (id) await S.db.doc("payments/" + id).update(data);
       else { const nid = uid(); await S.db.doc("payments/" + nid).set({ id: nid, ...data, paidAt: null, method: null, createdAt: new Date().toISOString() }); }
-    }, t("saved"))) closeDrawer();
+    }, t("saved")) && f.isConnected) closeDrawer();
   }
 });
 
@@ -1236,7 +1257,7 @@ async function connect() {
   S.auth = "in"; render();
   const db = supabaseDb(sb, (on) => { if (S.offline !== !on) { S.offline = !on; if (S.ready) scheduleRender(); } });
   S.db = db;
-  let pending = 6; const done = () => { if (--pending <= 0 && !S.ready) { S.ready = true; render(); return; } if (S.ready) scheduleRender(); else render(); };
+  let pending = 7; const done = () => { if (--pending <= 0 && !S.ready) { S.ready = true; render(); return; } if (S.ready) scheduleRender(); else render(); };
   const intoMap = (m) => (snap) => { m.clear(); snap.docs.forEach((d) => m.set(d.id, { ...d.data(), id: d.id })); done(); };
   const onErr = (e) => { console.error(e); done(); };
   db.collection("products").onSnapshot((snap) => {
@@ -1249,6 +1270,7 @@ async function connect() {
     done();
   }, onErr);
   db.collection("customers").onSnapshot(intoMap(S.customers), onErr);
+  db.collection("opened").onSnapshot(intoMap(S.opened), onErr);
   db.collection("suppliers").onSnapshot(intoMap(S.suppliers), onErr);
   db.collection("payments").onSnapshot(intoMap(S.payments), onErr);
   db.collection("sales").where("date", ">=", addDays(dateKey(), -14)).onSnapshot(intoMap(S.days), onErr);

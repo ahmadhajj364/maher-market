@@ -149,7 +149,7 @@ async function readStore() {
   // a reload keeps the device signed in
   await pages[0].reload(); await pages[0].waitForSelector('#tillSearch', { timeout: 30000 });
   if (DROP) (async () => { await sleep(20000); blackout = true; for (const c of [...conns]) { c.ws.close({ code: 4000, reason: 'drop' }); conns.delete(c); } console.error('-- live connection cut for 6 s --'); await sleep(6000); blackout = false; })();
-  const exp = { sold: {}, receipts: 0, bal: { c1: 0, c2: 0, s1: 0 }, recv: {}, pays: 0, paid: 0, linked: {} };
+  const exp = { sold: {}, receipts: 0, bal: { c1: 0, c2: 0, s1: 0 }, recv: {}, pays: 0, paid: 0, linked: {}, taken: {} };
   const scanTimes = [], saleTimes = [];
   async function till(pg, idx) {
     for (let s = 0; s < SALES; s++) {
@@ -179,8 +179,11 @@ async function readStore() {
       // deliveries + boxes on best sellers that tills are selling right now
       await pg.click('[data-tab=stock]'); await sleep(200);
       const p = 'p' + (round % 10);
-      await pg.click(`[data-act=openReceive][data-id=${p}]`); await pg.fill('#rf-boxes', '2'); await pg.fill('#rf-pieces', '3'); await pg.click('#receiveForm button[type=submit]');
-      exp.recv[p] = (exp.recv[p] || 0) + 27;
+      await pg.click(`[data-act=openReceive][data-id=${p}]`); await pg.fill('#rf-boxes', '2'); await pg.click('#receiveForm button[type=submit]');
+      exp.recv[p] = (exp.recv[p] || 0) + 24;
+      // take boxes out of stock on a product the tills are not selling
+      await sleep(150); await pg.click(`[data-act=openCount][data-id=p${200 + round}]`); await pg.fill('#cf-boxes', String(1 + (round % 3))); await pg.click('#countForm button[type=submit]');
+      exp.taken['p' + (200 + round)] = 1 + (round % 3);
       // supplier from the product panel
       await pg.click(`tr[data-row=p${100 + round}] td.n`); await pg.fill('#qs-name', 'Supplier ' + round); await pg.fill('#qs-phone', '70 00' + round); await pg.click('#quickSupForm button[type=submit]');
       exp.linked['p' + (100 + round)] = 'Supplier ' + round; await sleep(150); await pg.click('[data-act=closeDrawer]');
@@ -213,6 +216,7 @@ async function readStore() {
   const totalOf = (p) => p.shelf + p.openBox + p.closed * p.boxSize - (Object.values(p.soldBy || {}).reduce((a, b) => a + b, 0) - (p.soldBase || 0));
   const wrong = [];
   for (let i = 0; i < 10; i++) { const k = `products/p${i}`; const want = totalOf(start.get(k)) - (exp.sold['p' + i] || 0) + (exp.recv['p' + i] || 0); const got = totalOf(store.get(k)); if (want !== got) wrong.push(`p${i}: want ${want} got ${got}`); }
+  for (const [pid, n] of Object.entries(exp.taken)) { const got = store.get('products/' + pid).closed; if (got !== 10 - n) wrong.push(`${pid} take out: want ${10 - n} closed got ${got}`); }
   const balOf = (id) => { const c = store.get('customers/' + id); const es = Array.isArray(c.entries) ? c.entries : Object.values(c.entries || {}); return +es.reduce((s, e) => s + (e.type === 'sale' ? e.amount : -e.amount), 0).toFixed(2); };
   const debts = Object.fromEntries(Object.keys(exp.bal).map(id => [id, { expected: +exp.bal[id].toFixed(2), saved: balOf(id) }]));
   const pays = [...store].filter(([k]) => k.startsWith('payments/')).map(([, v]) => v);

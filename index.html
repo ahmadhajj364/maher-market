@@ -222,9 +222,9 @@ const T = {
     category: "Category", price: "Sell price ($)", cost: "Cost ($)", boxSize: "Pieces per box", reorder: "Reorder when total is at or below",
     weighed: "Sold by weight (price from the scale)", save: "Save", cancel: "Cancel", del: "Delete", confirmDel: "Tap again to delete",
     total_pcs: "Total", shelf: "On shelf", openBox: "Open box", closed: "Closed boxes", status: "Status",
-    reorderNow: "Reorder now", low: "Low", ok: "OK", receive: "Receive delivery", count: "Count",
+    reorderNow: "Reorder now", low: "Low", ok: "OK", receive: "Receive delivery", count: "Take out",
     boxes: "Boxes", pieces: "Loose pieces", newCost: "New cost per piece ($, optional)", toWhere: "Put loose pieces",
-    received: "Delivery added to stock", counted: "Count saved", reorderList: "Reorder list", reorderSub: "Items at or below their reorder level. Order these from suppliers.",
+    received: "Delivery added to stock", counted: "Boxes taken out of stock", takeBoxes: "Boxes taken", closedNow: "Closed boxes in stock", notEnough: "There are not that many closed boxes", reorderList: "Reorder list", reorderSub: "Items at or below their reorder level. Order these from suppliers.",
     allGood: "Nothing to reorder right now.", searchProducts: "Search products", removeExamples: "Remove example products",
     examplesGone: "Example products removed",
     boxesSub: "Where stock sits: on the shelf, in an opened box, or in closed boxes in storage. Sales come off the shelf first.",
@@ -277,9 +277,9 @@ const T = {
     category: "الفئة", price: "سعر البيع ($)", cost: "الكلفة ($)", boxSize: "عدد القطع بالكرتونة", reorder: "اطلب عندما يصبح المجموع أو أقل",
     weighed: "يباع بالوزن (السعر من الميزان)", save: "حفظ", cancel: "إلغاء", del: "حذف", confirmDel: "اضغط مرة ثانية للحذف",
     total_pcs: "المجموع", shelf: "على الرف", openBox: "بالكرتونة المفتوحة", closed: "كراتين مغلقة", status: "الحالة",
-    reorderNow: "اطلب الآن", low: "قليل", ok: "جيد", receive: "استلام بضاعة", count: "جرد",
+    reorderNow: "اطلب الآن", low: "قليل", ok: "جيد", receive: "استلام بضاعة", count: "سحب",
     boxes: "كراتين", pieces: "قطع مفردة", newCost: "كلفة القطعة الجديدة ($، اختياري)", toWhere: "ضع القطع المفردة",
-    received: "تمت إضافة البضاعة للمخزون", counted: "تم حفظ الجرد", reorderList: "قائمة الطلب", reorderSub: "أصناف وصلت لحد الطلب أو أقل. اطلبها من الموردين.",
+    received: "تمت إضافة البضاعة للمخزون", counted: "تم سحب الكراتين من المخزون", takeBoxes: "عدد الكراتين المسحوبة", closedNow: "الكراتين المغلقة بالمخزون", notEnough: "لا يوجد هذا العدد من الكراتين المغلقة", reorderList: "قائمة الطلب", reorderSub: "أصناف وصلت لحد الطلب أو أقل. اطلبها من الموردين.",
     allGood: "لا شيء للطلب الآن.", searchProducts: "ابحث عن منتج", removeExamples: "احذف المنتجات التجريبية",
     examplesGone: "تم حذف المنتجات التجريبية",
     boxesSub: "أين البضاعة: على الرف، بكرتونة مفتوحة، أو بكراتين مغلقة بالمستودع. البيع ينقص من الرف أولا.",
@@ -846,19 +846,15 @@ function supplierDrawer(id) {
 function receiveDrawer(id) {
   const p = S.products.get(id);
   drawer(`${t("receive")}: ${pname(p)}`, `<form id="receiveForm" class="stack" data-id="${esc(id)}"><div class="grid-form">
-    <label class="f">${esc(t("boxes"))} (×${boxSize(p)})<input type="number" id="rf-boxes" min="0" step="1" value="0"></label>
-    <label class="f">${esc(t("pieces"))}<input type="number" id="rf-pieces" min="0" step="1" value="0"></label>
-    <label class="f">${esc(t("toWhere"))}<select id="rf-where"><option value="shelf">${esc(t("shelf"))}</option><option value="openBox">${esc(t("openBox"))}</option></select></label>
-    <label class="f">${esc(t("newCost"))}<input type="number" id="rf-cost" min="0" step="any" placeholder="${esc(p.cost ?? "")}"></label></div>
+    <label class="f">${esc(t("boxes"))} (×${boxSize(p)})<input type="number" id="rf-boxes" min="1" step="1" value="1" required></label></div>
     <p class="muted mono">${esc(t("total_pcs"))}: ${totalOf(p)}</p>
     <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
 }
 function countDrawer(id) {
   const p = S.products.get(id);
   drawer(`${t("count")}: ${pname(p)}`, `<form id="countForm" class="stack" data-id="${esc(id)}"><div class="grid-form">
-    <label class="f">${esc(t("shelf"))}<input type="number" id="cf-shelf" min="0" step="1" value="${num(p.shelf)}"></label>
-    <label class="f">${esc(t("openBox"))}<input type="number" id="cf-open" min="0" step="1" value="${num(p.openBox)}"></label>
-    <label class="f">${esc(t("closed"))}<input type="number" id="cf-closed" min="0" step="1" value="${num(p.closed)}"></label></div>
+    <label class="f">${esc(t("takeBoxes"))} (×${boxSize(p)})<input type="number" id="cf-boxes" min="1" max="${num(p.closed)}" step="1" value="1" required></label></div>
+    <p class="muted mono">${esc(t("closedNow"))}: ${num(p.closed)}</p>
     <div class="row"><button class="btn primary" type="submit">${esc(t("save"))}</button><button class="btn" type="button" data-act="closeDrawer">${esc(t("cancel"))}</button></div></form>`);
 }
 function customerNewDrawer(kind) {
@@ -1069,13 +1065,14 @@ document.addEventListener("submit", async (ev) => {
     }, t("saved"))) closeDrawer();
   }
   if (f.id === "receiveForm") {
-    const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#rf-boxes")))); const pc = Math.max(0, Math.round(num(v("#rf-pieces"))));
-    const upd = stockBase(p, { closed: num(p.closed) + bx }); const where = v("#rf-where"); upd[where] = num(p[where]) + pc;
-    const nc = v("#rf-cost"); if (nc !== "" && nc != null) upd.cost = num(nc);
+    const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#rf-boxes"))));
+    const upd = stockBase(p, { closed: num(p.closed) + bx });
     if (await write(() => S.db.doc("products/" + id).update(upd), t("received"))) closeDrawer();
   }
   if (f.id === "countForm") {
-    const upd = { shelf: Math.max(0, Math.round(num(v("#cf-shelf")))), openBox: Math.max(0, Math.round(num(v("#cf-open")))), closed: Math.max(0, Math.round(num(v("#cf-closed")))), soldBase: num(S.products.get(id)._soldTotal), countedAt: new Date().toISOString() };
+    const p = S.products.get(id); const bx = Math.max(0, Math.round(num(v("#cf-boxes"))));
+    if (bx > num(p.closed)) { toast(t("notEnough")); return; }
+    const upd = stockBase(p, { closed: num(p.closed) - bx });
     if (await write(() => S.db.doc("products/" + id).update(upd), t("counted"))) closeDrawer();
   }
   if (f.id === "customerForm") {

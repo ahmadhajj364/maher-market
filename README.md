@@ -40,3 +40,7 @@ PGURL=postgres://postgres:pg@localhost/maher_test node tests/supabase-load.js <s
 Last run (`100 400 5 drop`): 6 devices, 1,040 products, 500 sales at 400 ms latency, live connection cut
 for 6 seconds mid-run: 500 of 500 receipts, stock, debts, payments and supplier links all exact, all
 devices agree. Scan about 0.2 s, a full sale about 1.6 s.
+
+`tests/sweep.js` (same setup) opens every page in English and Arabic at phone and laptop width, presses
+every button, checks nothing scrolls sideways or gets cut off, and runs each form end to end with the
+result checked in the database: `PGURL=... node tests/sweep.js`.

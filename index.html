@@ -62,6 +62,13 @@ nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; scrol
 /* phones: all tabs visible as a grid instead of a strip that runs off the screen */
 @media (max-width: 700px) { nav.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
   nav.tabs button { padding: 7px 4px; font-size: 13px; line-height: 1.25; text-align: center; white-space: normal; } nav.tabs .dot { margin-inline-start: 3px; } }
+@media (max-width: 700px) {
+  .tbl { overflow: visible; } .tbl table, .tbl tbody, .tbl tr, .tbl td { display: block; width: 100%; } .tbl thead { display: none; }
+  .tbl tr { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .tbl tr:last-child { border-bottom: 0; } .tbl td { width: auto; padding: 0; border: 0; text-align: start; }
+  .tbl td:first-child { flex-basis: 100%; } .tbl td[data-label]:not(:first-child)::before { content: attr(data-label) ": "; color: var(--muted); font-size: 12px; font-family: var(--font); }
+  .tbl td:last-child:not([data-label]) { flex-basis: 100%; } .tbl td .row { flex-wrap: wrap !important; }
+}
 .obox { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
 .obox .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; } .obox .left { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--ink); }
 nav.tabs button { flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 8px 12px; border-radius: var(--r); cursor: pointer; position: relative; }
@@ -464,6 +471,9 @@ function render() {
     if (el.dataset.fresh) return;
     if (el.id in vals) { if (el.type === "checkbox") el.checked = vals[el.id]; else el.value = vals[el.id]; }
   });
+  // phones show table rows as cards; each value keeps its column name
+  main.querySelectorAll(".tbl table").forEach((tb) => { const hs = [...tb.querySelectorAll("thead th")].map((h) => h.textContent.trim());
+    tb.querySelectorAll("tbody tr").forEach((tr) => [...tr.children].forEach((td, i) => { if (hs[i] && td.dataset.label !== hs[i]) td.dataset.label = hs[i]; })); });
   if (active) { const el = document.getElementById(active); if (el) { el.focus(); try { if (selStart != null) el.setSelectionRange(selStart, selStart); } catch (e) {} } }
 }
 
@@ -712,7 +722,7 @@ VIEWS.payments = () => {
       <td>${esc(p.due || "—")} ${od ? `<span class="pill bad">${esc(t("overdue"))}</span>` : p.due && p.due <= in7 ? `<span class="pill warn">${daysBetween(today, p.due)} ${esc(t("days"))}</span>` : ""}</td>
       <td><div class="row" style="flex-wrap:nowrap"><select id="pm-${esc(p.id)}" style="width:auto"><option value="till">${esc(t("fromTill"))}</option><option value="owner">${esc(t("fromOwner"))}</option><option value="transfer">${esc(t("transfer"))}</option></select>
       <button class="btn small primary" data-act="markPaid" data-id="${esc(p.id)}">${esc(t("markPaid"))}</button><button class="btn small" data-act="openPayment" data-id="${esc(p.id)}">✎</button></div></td></tr>`; }).join("");
-  const doneRows = done.map((p) => `<tr><td><b>${esc(p.to)}</b><div class="muted">${esc(p.what || "")}</div></td><td class="n">${amt(p)}</td><td>${esc(p.paidAt.slice(0, 10))}</td><td>${esc(mlabel[p.method] || "")}</td></tr>`).join("");
+  const doneRows = done.map((p) => `<tr><td><b>${esc(p.to)}</b><div class="muted">${esc(p.what || "")}</div></td><td class="n">${amt(p)}</td><td>${esc(p.paidAt.slice(0, 10))}</td><td>${esc(mlabel[p.method] || "")}</td><td><button class="btn small" data-act="openPayment" data-id="${esc(p.id)}">✎</button></td></tr>`).join("");
   return `<div class="stack"><div class="row"><div><h2>${esc(t("tab_payments"))}</h2><p class="sub" style="margin:0">${esc(t("paySub"))}</p></div><span class="spacer"></span>
       <button class="btn primary" data-act="openPayment">${esc(t("addPay"))}</button></div>
     <div class="kpis"><div class="kpi"><span>${esc(t("dueWeek"))}</span><b>${usd(sumTo(in7))}</b><em>${lbp(toLbp(sumTo(in7)))}</em></div>
@@ -720,7 +730,7 @@ VIEWS.payments = () => {
     <div class="row"><div class="seg"><button data-act="payTab" data-v="upcoming" aria-pressed="${S.payTab === "upcoming"}">${esc(t("upcoming"))} (${up.length})</button><button data-act="payTab" data-v="paid" aria-pressed="${S.payTab === "paid"}">${esc(t("paid"))} (${done.length})</button></div></div>
     ${S.payTab === "upcoming"
       ? (up.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("to"))}</th><th class="n">${esc(t("amount"))}</th><th>${esc(t("due"))}</th><th></th></tr></thead><tbody>${upRows}</tbody></table></div>` : `<div class="panel empty">${esc(t("noUpcoming"))}</div>`)
-      : (done.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("to"))}</th><th class="n">${esc(t("amount"))}</th><th>${esc(t("paidOn"))}</th><th>${esc(t("method"))}</th></tr></thead><tbody>${doneRows}</tbody></table></div>` : `<div class="panel empty">${esc(t("noPaid"))}</div>`)}
+      : (done.length ? `<div class="tbl"><table><thead><tr><th>${esc(t("to"))}</th><th class="n">${esc(t("amount"))}</th><th>${esc(t("paidOn"))}</th><th>${esc(t("method"))}</th><th></th></tr></thead><tbody>${doneRows}</tbody></table></div>` : `<div class="panel empty">${esc(t("noPaid"))}</div>`)}
   </div>`;
 };
 
@@ -741,7 +751,7 @@ VIEWS.today = () => {
   const topList = [...top.values()].sort((a, b) => b.amt - a.amt).slice(0, 8);
   const late = [...S.customers.values()].filter(isLate).length;
   const dueW = [...S.payments.values()].filter((p) => !p.paidAt && p.due && p.due <= addDays(today, 7)).length;
-  const alerts = [[prods.filter(isReorder).length, t("a_reorder"), "stock"], [prods.filter(needsRefill).length, t("a_refill"), "boxes"], [late, t("a_late"), "customers"], [dueW, t("a_due"), "payments"]].filter((a) => a[0] > 0);
+  const alerts = [[prods.filter(isReorder).length, t("a_reorder"), "stock"], [late, t("a_late"), "customers"], [dueW, t("a_due"), "payments"]].filter((a) => a[0] > 0);
   const cmp = (a, b) => b ? `${t("lastWeek")}: ${usd(b)}` : "";
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, -6 + i)).map((k) => ({ k, ...daySummary(k) }));
   const max = Math.max(1, ...week.map((w) => w.sales));

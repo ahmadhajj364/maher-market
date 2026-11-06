@@ -182,7 +182,7 @@ async function readStore() {
       await pg.click(`[data-act=openReceive][data-id=${p}]`); await pg.fill('#rf-boxes', '2'); await pg.click('#receiveForm button[type=submit]');
       exp.recv[p] = (exp.recv[p] || 0) + 24;
       // take boxes out of stock on a product the tills are not selling
-      await sleep(150); await pg.click(`[data-act=openCount][data-id=p${200 + round}]`); await pg.fill('#cf-boxes', String(1 + (round % 3))); await pg.click('#countForm button[type=submit]');
+      await sleep(150); await pg.click(`[data-act=openCount][data-id=p${200 + round}]`); await pg.fill('#tk-boxes', String(1 + (round % 3))); await pg.click('#takeForm button[type=submit]');
       exp.taken['p' + (200 + round)] = 1 + (round % 3);
       // supplier from the product panel
       await pg.click(`tr[data-row=p${100 + round}] td.n`); await pg.fill('#qs-name', 'Supplier ' + round); await pg.fill('#qs-phone', '70 00' + round); await pg.click('#quickSupForm button[type=submit]');

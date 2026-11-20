@@ -1,10 +1,15 @@
 <!doctype html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Maher Market System</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0b2c21">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maher Market">
+<meta name="theme-color" content="#0b1733">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,8 +46,8 @@
   --shadow-2: 0 1px 2px rgba(40, 32, 12, .05), 0 12px 32px -14px rgba(40, 32, 12, .22);
   --shadow-3: 0 24px 64px -20px rgba(10, 20, 15, .45);
   /* masthead */
-  --navy: #1b2f57; --navy-2: #0d1a36; /* logo */
-  --band: #0b2c21; --band-2: #071d16; --band-ink: #f6efdd; --band-muted: rgba(246, 239, 221, .62); --band-line: rgba(201, 169, 107, .38);
+  --navy: #22396a; --navy-2: #0f1d3d; /* logo */
+  --band: #16294f; --band-2: #0b1733; --band-ink: #f6efdd; --band-muted: rgba(246, 239, 221, .62); --band-line: rgba(201, 169, 107, .38);
   /* category and section colours: quiet jewel tones, a soft tint + a matching ink for each */
   --t-green: #e3eee5; --i-green: #1d5b3e;  --t-blue: #e3e9f1; --i-blue: #2c4f7c;
   --t-purple: #ebe6f0; --i-purple: #57406f; --t-amber: #f4ead3; --i-amber: #82591a;
@@ -56,7 +61,7 @@
   --accent: #3e9a77; --accent-2: #2f7d60; --accent-ink: #07120d; --accent-soft: #15291f; --gold: #d2b47a; --gold-2: #e3c993; --gold-soft: #2a2416;
   --warn: #e3b467; --warn-soft: #33270f; --bad: #ec8b7f; --bad-soft: #3a1b17; --good: #79c99a;
   --shadow-1: 0 1px 2px rgba(0,0,0,.4); --shadow-2: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px -16px rgba(0,0,0,.7); --shadow-3: 0 24px 64px -18px rgba(0,0,0,.8);
-  --band: #0a1f18; --band-2: #050f0b; --band-ink: #f1e8d2; --band-muted: rgba(241,232,210,.58); --band-line: rgba(210,180,122,.32);
+  --band: #0f1d3a; --band-2: #070e20; --band-ink: #f1e8d2; --band-muted: rgba(241,232,210,.58); --band-line: rgba(210,180,122,.32);
   --t-green: #13261c; --i-green: #8fcfa9; --t-blue: #151f2d; --i-blue: #9fbbe0; --t-purple: #1f1928; --i-purple: #c2aedb; --t-amber: #2b2211; --i-amber: #e6c27f;
   --t-coral: #2d1913; --i-coral: #eca792; --t-teal: #102624; --i-teal: #8fd2cd; --t-pink: #2b161d; --i-pink: #e6a8bb; --t-olive: #22230f; --i-olive: #cdd08a; color-scheme: dark } }
 :root[data-theme="dark"] {
@@ -64,7 +69,7 @@
   --accent: #3e9a77; --accent-2: #2f7d60; --accent-ink: #07120d; --accent-soft: #15291f; --gold: #d2b47a; --gold-2: #e3c993; --gold-soft: #2a2416;
   --warn: #e3b467; --warn-soft: #33270f; --bad: #ec8b7f; --bad-soft: #3a1b17; --good: #79c99a;
   --shadow-1: 0 1px 2px rgba(0,0,0,.4); --shadow-2: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px -16px rgba(0,0,0,.7); --shadow-3: 0 24px 64px -18px rgba(0,0,0,.8);
-  --band: #0a1f18; --band-2: #050f0b; --band-ink: #f1e8d2; --band-muted: rgba(241,232,210,.58); --band-line: rgba(210,180,122,.32);
+  --band: #0f1d3a; --band-2: #070e20; --band-ink: #f1e8d2; --band-muted: rgba(241,232,210,.58); --band-line: rgba(210,180,122,.32);
   --t-green: #13261c; --i-green: #8fcfa9; --t-blue: #151f2d; --i-blue: #9fbbe0; --t-purple: #1f1928; --i-purple: #c2aedb; --t-amber: #2b2211; --i-amber: #e6c27f;
   --t-coral: #2d1913; --i-coral: #eca792; --t-teal: #102624; --i-teal: #8fd2cd; --t-pink: #2b161d; --i-pink: #e6a8bb; --t-olive: #22230f; --i-olive: #cdd08a; color-scheme: dark }
 
@@ -298,6 +303,27 @@ tr.clickrow { cursor: pointer; } tr.clickrow:hover td { background: color-mix(in
 .obox .left { font-family: var(--font); font-variant-numeric: tabular-nums lining-nums; font-size: 30px; font-weight: 500; color: var(--sec, var(--ink)); line-height: 1.1; }
 @media (prefers-reduced-motion: no-preference) { .item, .btn { transition: border-color .15s, box-shadow .2s, transform .15s, background-color .15s; } }
 @media (prefers-reduced-motion: reduce) { .drawer, .drawer-bg { animation: none; } nav.tabs button::after { transition: none; } }
+@media (max-width: 700px), (pointer: coarse) { input[type=text], input[type=number], input[type=date], input[type=search], input[type=tel], input[type=email], input[type=password], select, textarea { font-size: 16px; } }
+/* tablets: all eight tabs in one row instead of a strip that runs off the side */
+@media (min-width: 701px) and (max-width: 1020px) {
+  nav.tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); overflow: visible; margin-inline: 0; }
+  nav.tabs button { padding: 10px 2px 12px; font-size: 13px; line-height: 1.25; text-align: center; white-space: normal; letter-spacing: 0; }
+  nav.tabs button::after { inset-inline: 10%; } }
+/* small phones: a compact header, and on short screens it scrolls away instead of covering the page */
+@media (max-width: 430px) {
+  .top-row { gap: 8px 10px; padding-block: 10px 8px; }
+  .brand { font-size: 17px; padding-inline-start: 42px; min-height: 34px; }
+  .brand::before { width: 32px; height: 32px; font-size: 18px; }
+  .brand small { font-size: 9.5px; letter-spacing: .18em; margin-top: 2px; }
+  [dir=rtl] .brand small { font-size: 11px; letter-spacing: 0; }
+  .rate { font-size: 11px; padding: 3px 9px; }
+  #langBtn { padding: 3px 12px; font-size: 12.5px; min-height: 32px; }
+  nav.tabs { gap: 3px; padding-bottom: 8px; }
+  nav.tabs button { padding: 7px 2px; font-size: 12px; }
+  .search-big { font-size: 16px !important; padding-block: 13px !important; } }
+@media (max-width: 700px) and (max-height: 700px) { header.top { position: relative; top: 0; } }
+/* touch screens: product-name links get a taller tap area */
+@media (pointer: coarse) { .linkbtn { padding-block: 6px; } }
 @media (max-width: 700px) { main { padding-block: 20px 56px; } h2 { font-size: 27px; } .panel { padding: 16px; } .receipt { padding: 18px; } .kpi b { font-size: 24px; } }
 </style>
 

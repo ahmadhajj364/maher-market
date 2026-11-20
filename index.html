@@ -41,6 +41,7 @@
   --shadow-2: 0 1px 2px rgba(40, 32, 12, .05), 0 12px 32px -14px rgba(40, 32, 12, .22);
   --shadow-3: 0 24px 64px -20px rgba(10, 20, 15, .45);
   /* masthead */
+  --navy: #1b2f57; --navy-2: #0d1a36; /* logo */
   --band: #0b2c21; --band-2: #071d16; --band-ink: #f6efdd; --band-muted: rgba(246, 239, 221, .62); --band-line: rgba(201, 169, 107, .38);
   /* category and section colours: quiet jewel tones, a soft tint + a matching ink for each */
   --t-green: #e3eee5; --i-green: #1d5b3e;  --t-blue: #e3e9f1; --i-blue: #2c4f7c;
@@ -88,7 +89,7 @@ header.top::after { content: ""; position: absolute; inset: auto 0 -1px; height:
   font-family: var(--display); font-weight: 600; font-size: 22px; line-height: 1.1; letter-spacing: .01em; color: var(--band-ink); }
 .brand::before { content: "M"; position: absolute; inset-inline-start: 0; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%;
   display: grid; place-items: center; font-family: var(--display); font-size: 21px; font-weight: 600; color: var(--gold-2);
-  border: 1px solid var(--gold-2); box-shadow: inset 0 0 0 3px var(--band-2), inset 0 0 0 4px rgba(201,169,107,.35); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.08), transparent 60%); }
+  border: 1px solid var(--gold-2); box-shadow: inset 0 0 0 3px var(--navy-2), inset 0 0 0 4px rgba(201,169,107,.45), 0 2px 8px rgba(0,0,0,.35); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.14), transparent 60%), linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%); }
 [dir=rtl] .brand::before { content: "م"; font-size: 22px; padding-bottom: 4px; }
 .brand small { display: block; margin-top: 3px; font-family: var(--font); font-weight: 500; font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold-2); opacity: .85; }
 [dir=rtl] .brand small { letter-spacing: 0; font-size: 12px; text-transform: none; }
@@ -258,7 +259,7 @@ td.wrapc { white-space: normal; min-width: 160px; }
 /* Login */
 #loginForm { position: relative; margin-top: 8vh !important; padding: 36px 32px 30px; border-radius: 18px; box-shadow: var(--shadow-3); text-align: start; }
 #loginForm::before { content: "M"; display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 4px; border-radius: 50%;
-  font-family: var(--display); font-size: 30px; font-weight: 600; color: var(--gold-2); background: linear-gradient(180deg, var(--band), var(--band-2));
+  font-family: var(--display); font-size: 30px; font-weight: 600; color: var(--gold-2); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.14), transparent 60%), linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
   box-shadow: 0 0 0 1px var(--gold-2), 0 0 0 5px var(--surface), 0 0 0 6px color-mix(in srgb, var(--gold) 40%, transparent); }
 [dir=rtl] #loginForm::before { content: "م"; padding-bottom: 6px; }
 #loginForm h2 { text-align: center; } #loginForm h2::after { margin-inline: auto; } #loginForm .sub { text-align: center; }
